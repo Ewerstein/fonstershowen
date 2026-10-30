@@ -4,6 +4,8 @@ import { createBus } from '../shared/bus';
 import { strings } from '../shared/i18n';
 import { activeProfile, loadSettings } from '../shared/settings';
 import type { ShowSettings, StageStatus } from '../shared/types';
+import { loadTheme, themeBase } from '../shared/theme';
+import { GlbCharacter } from './characters/glbCharacter';
 import { TestTomte } from './characters/testTomte';
 import type { Character } from './characters/types';
 import { computeLayout } from './projection';
@@ -17,7 +19,10 @@ const hint = document.getElementById('hint') as HTMLDivElement;
 
 let settings: ShowSettings;
 const scene = new ShowScene(canvas);
-const character: Character = new TestTomte();
+let character: Character = new TestTomte();
+let shownStyle = 'test';
+let styleError: string | undefined;
+let wantedStyle = '';
 scene.add(character.object);
 
 const director = new Director({
@@ -26,6 +31,45 @@ const director = new Director({
     sendStatus();
   },
 });
+
+function swapCharacter(next: Character, styleId: string): void {
+  scene.remove(character.object);
+  character.dispose();
+  character = next;
+  character.setState(director.state);
+  scene.add(character.object);
+  shownStyle = styleId;
+  sendStatus();
+}
+
+/** Byter figur när temat eller stilen ändras. Går något fel visas testtomten och felet skickas till panelen. */
+async function applyStyle(themeId: string, styleId: string): Promise<void> {
+  const key = `${themeId}/${styleId}`;
+  if (key === wantedStyle) return;
+  wantedStyle = key;
+  if (styleId === 'test') {
+    styleError = undefined;
+    swapCharacter(new TestTomte(), 'test');
+    return;
+  }
+  try {
+    const theme = await loadTheme(themeId);
+    const style = theme.styles.find((s) => s.id === (styleId || theme.defaultStyle)) ?? theme.styles[0];
+    if (!style) throw new Error('Temat har inga stilar');
+    const next = await GlbCharacter.load(themeBase(themeId), style);
+    if (wantedStyle !== key) {
+      next.dispose();
+      return;
+    }
+    styleError = undefined;
+    swapCharacter(next, style.id);
+  } catch (error) {
+    if (wantedStyle !== key) return;
+    styleError = error instanceof Error ? error.message : String(error);
+    if (shownStyle !== 'test') swapCharacter(new TestTomte(), 'test');
+    else sendStatus();
+  }
+}
 
 const bus = createBus((message) => {
   switch (message.kind) {
@@ -49,6 +93,7 @@ function applySettings(next: ShowSettings): void {
   document.documentElement.lang = next.locale;
   hint.textContent = strings(next.locale).fullscreenHint;
   layout();
+  void applyStyle(next.themeId, next.styleId);
 }
 
 function layout(): void {
@@ -76,6 +121,8 @@ function sendStatus(): void {
     fullscreen: document.fullscreenElement !== null,
     autonomous: director.autonomous,
     screen: { width: window.innerWidth, height: window.innerHeight },
+    styleId: shownStyle,
+    styleError,
     at: Date.now(),
   };
   bus.send({ kind: 'status', status });

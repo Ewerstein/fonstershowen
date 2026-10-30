@@ -26,10 +26,14 @@ export function defaultSettings(): ShowSettings {
     locale: 'sv',
     autonomous: true,
     testPattern: true,
+    themeId: 'jul',
+    styleId: '',
     activeProfileId: profile.id,
     profiles: [profile],
   };
 }
+
+const ID_PATTERN = /^[a-z0-9-]{0,40}$/;
 
 export function activeProfile(settings: ShowSettings): WindowProfile {
   return settings.profiles.find((p) => p.id === settings.activeProfileId) ?? settings.profiles[0];
@@ -84,6 +88,8 @@ export function normalizeSettings(value: unknown): ShowSettings {
     locale: LOCALES.includes(v.locale as Locale) ? (v.locale as Locale) : 'sv',
     autonomous: typeof v.autonomous === 'boolean' ? v.autonomous : true,
     testPattern: typeof v.testPattern === 'boolean' ? v.testPattern : false,
+    themeId: typeof v.themeId === 'string' && v.themeId && ID_PATTERN.test(v.themeId) ? v.themeId : 'jul',
+    styleId: typeof v.styleId === 'string' && ID_PATTERN.test(v.styleId) ? v.styleId : '',
     activeProfileId,
     profiles,
   };
