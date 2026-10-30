@@ -1,0 +1,120 @@
+/* Scenen på projektorn. Allt utom figuren och testbilden är helt svart. */
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  cursor: none;
+}
+
+body.show-cursor {
+  cursor: default;
+}
+
+#screen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+}
+
+#content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+#mirror {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#mirror.mirrored {
+  transform: scaleX(-1);
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  color: #fff;
+}
+
+#pattern[hidden] {
+  display: none;
+}
+
+#pattern .grid {
+  position: absolute;
+  inset: 0;
+  border: 4px solid #fff;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.45) 2px, transparent 2px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.45) 2px, transparent 2px);
+  background-size: 10% 10%;
+  background-position: -1px -1px;
+}
+
+#pattern .ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 4px solid #f4b860;
+  border-radius: 50%;
+}
+
+#pattern .corner {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: #f4b860;
+  color: #0a1422;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+#pattern .c1 { left: 0; top: 0; }
+#pattern .c2 { right: 0; top: 0; }
+#pattern .c3 { right: 0; bottom: 0; }
+#pattern .c4 { left: 0; bottom: 0; }
+
+#pattern .label {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+#hint {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(15, 28, 46, 0.9);
+  color: #e8eef6;
+  font: 500 15px/1.3 system-ui, -apple-system, sans-serif;
+  pointer-events: none;
+}
+
+#hint[hidden] {
+  display: none;
+}

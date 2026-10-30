@@ -1,0 +1,175 @@
+import './stage.css';
+import { Director } from '../core/director';
+import { createBus } from '../shared/bus';
+import { strings } from '../shared/i18n';
+import { activeProfile, loadSettings } from '../shared/settings';
+import type { ShowSettings, StageStatus } from '../shared/types';
+import { TestTomte } from './characters/testTomte';
+import type { Character } from './characters/types';
+import { computeLayout } from './projection';
+import { ShowScene } from './scene';
+
+const content = document.getElementById('content') as HTMLDivElement;
+const mirror = document.getElementById('mirror') as HTMLDivElement;
+const canvas = document.getElementById('scene') as HTMLCanvasElement;
+const pattern = document.getElementById('pattern') as HTMLDivElement;
+const hint = document.getElementById('hint') as HTMLDivElement;
+
+let settings: ShowSettings;
+const scene = new ShowScene(canvas);
+const character: Character = new TestTomte();
+scene.add(character.object);
+
+const director = new Director({
+  onChange: (state) => {
+    character.setState(state);
+    sendStatus();
+  },
+});
+
+const bus = createBus((message) => {
+  switch (message.kind) {
+    case 'settings':
+      applySettings(message.settings);
+      break;
+    case 'event':
+      director.handle(message.event);
+      break;
+    case 'requestStatus':
+    case 'hello':
+      if (message.kind === 'requestStatus' || message.from === 'panel') sendStatus();
+      break;
+  }
+});
+
+function applySettings(next: ShowSettings): void {
+  settings = next;
+  director.autonomous = next.autonomous;
+  pattern.hidden = !next.testPattern;
+  document.documentElement.lang = next.locale;
+  hint.textContent = strings(next.locale).fullscreenHint;
+  layout();
+}
+
+function layout(): void {
+  if (!settings) return;
+  const profile = activeProfile(settings);
+  const l = computeLayout(profile, window.innerWidth, window.innerHeight);
+  content.style.width = `${l.width}px`;
+  content.style.height = `${l.height}px`;
+  content.style.transform = l.transform;
+  mirror.classList.toggle('mirrored', l.mirror);
+  mirror.style.clipPath = l.clipPath;
+  scene.setSize(l.width, l.height);
+}
+
+// Bilder per sekund och statuspuls till kontrollpanelen.
+let fps = 0;
+let frames = 0;
+let fpsWindowStart = performance.now();
+let lastFrameAt = performance.now();
+
+function sendStatus(): void {
+  const status: StageStatus = {
+    state: director.state,
+    fps,
+    fullscreen: document.fullscreenElement !== null,
+    autonomous: director.autonomous,
+    screen: { width: window.innerWidth, height: window.innerHeight },
+    at: Date.now(),
+  };
+  bus.send({ kind: 'status', status });
+}
+
+let previous = performance.now();
+const start = previous;
+function frame(now: number): void {
+  const dt = Math.min(0.1, (now - previous) / 1000);
+  previous = now;
+  lastFrameAt = now;
+  const time = (now - start) / 1000;
+  director.update(dt);
+  character.update(dt, { lookTarget: director.lookTarget, time });
+  scene.update(dt, time);
+  scene.render();
+
+  frames++;
+  if (now - fpsWindowStart >= 1000) {
+    fps = Math.round((frames * 1000) / (now - fpsWindowStart));
+    frames = 0;
+    fpsWindowStart = now;
+    sendStatus();
+  }
+  requestAnimationFrame(frame);
+}
+
+// Helskärm, muspekare och tangenter för test utan kontrollpanel.
+async function toggleFullscreen(): Promise<void> {
+  if (document.fullscreenElement) await document.exitFullscreen();
+  else await document.documentElement.requestFullscreen();
+}
+
+function updateHint(): void {
+  hint.hidden = document.fullscreenElement !== null;
+}
+
+document.addEventListener('fullscreenchange', () => {
+  updateHint();
+  sendStatus();
+});
+document.addEventListener('dblclick', () => void toggleFullscreen());
+document.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  if (key === 'f') void toggleFullscreen();
+  if (key === 'w') director.handle({ type: 'manual', action: 'wave' });
+  if (key === 'c') director.handle({ type: 'manual', action: 'celebrate' });
+  if (key === 'l') director.handle({ type: 'manual', action: 'lookAround' });
+  if (key === 's') director.handle({ type: 'manual', action: director.state === 'sleep' ? 'wake' : 'sleep' });
+});
+
+let cursorTimer = 0;
+document.addEventListener('mousemove', () => {
+  document.body.classList.add('show-cursor');
+  window.clearTimeout(cursorTimer);
+  cursorTimer = window.setTimeout(() => document.body.classList.remove('show-cursor'), 2000);
+});
+
+window.addEventListener('resize', () => {
+  layout();
+  sendStatus();
+});
+
+// Håll skärmen vaken medan showen går.
+let wakeLock: WakeLockSentinel | null = null;
+async function keepAwake(): Promise<void> {
+  try {
+    if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch {
+    wakeLock = null;
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !wakeLock) void keepAwake();
+});
+
+// Självläkning: tappad grafik eller en scen som slutat rita laddas om.
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  window.setTimeout(() => location.reload(), 2000);
+});
+window.setInterval(() => {
+  if (document.visibilityState === 'visible' && performance.now() - lastFrameAt > 10000) location.reload();
+}, 5000);
+
+async function boot(): Promise<void> {
+  applySettings(await loadSettings());
+  updateHint();
+  void keepAwake();
+  bus.send({ kind: 'hello', from: 'stage' });
+  sendStatus();
+  requestAnimationFrame(frame);
+}
+
+void boot();
