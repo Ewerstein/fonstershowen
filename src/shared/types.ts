@@ -37,6 +37,9 @@ export interface ShowSettings {
   locale: Locale;
   autonomous: boolean;
   testPattern: boolean;
+  themeId: string;
+  /** Vald figurstil i temat. 'test' är den inbyggda testtomten, tom sträng betyder temats standard. */
+  styleId: string;
   activeProfileId: string;
   profiles: WindowProfile[];
 }
@@ -58,6 +61,9 @@ export interface StageStatus {
   fullscreen: boolean;
   autonomous: boolean;
   screen: { width: number; height: number };
+  /** Den figurstil scenen faktiskt visar. 'test' om temat inte gick att läsa in. */
+  styleId: string;
+  styleError?: string;
   at: number;
 }
 
