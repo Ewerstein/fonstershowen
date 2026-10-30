@@ -32,4 +32,10 @@ npm run build
 
 Sensorer skickar händelser, regissören väljer läge, figuren spelar läget. En ny sensor eller figur kräver ingen ändring i de andra delarna.
 
+## Teman och figurer
+
+Ett tema är en mapp i `public/themes/<id>/` med en `manifest.json`. Manifestet listar stilar, vilken modell och vilka rörelser varje stil använder, och vilket klipp som hör till vilket läge. Saknas ett klipp används närmaste läge, och vinkning och handlyft läggs på med kod.
+
+Jultemat använder skelett och rörelser från Quaternius Universal Animation Library (CC0). Tomtarna byggs av enkla former som sitter fast på skelettet, så en ny stil är bara nya färger och former i manifestet. Använd bara material med licens som tillåter kommersiell användning, och lägg in dem under `credits`.
+
 Analys och byggplan finns i dokumentet *Fönstershowen: analys och byggplan*.

@@ -16,7 +16,7 @@ export const FALLBACK: Record<DirectorState, DirectorState[]> = {
   lookAround: ['awake'],
   notice: ['lookAround', 'awake'],
   greet: ['waveBack', 'notice', 'awake'],
-  waveBack: ['greet', 'celebrate', 'awake'],
+  waveBack: ['greet', 'awake'],
   celebrate: ['waveBack', 'greet', 'awake'],
   sleep: ['awake'],
 };

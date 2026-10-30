@@ -43,6 +43,7 @@ function dressMaterial(source: THREE.Material, dress: DressSpec, bounds: Bounds)
     uBelt: { value: color(dress.belt) },
     uBoots: { value: color(dress.boots) },
     uMittens: { value: color(dress.mittens) },
+    uPants: { value: color(dress.pants ?? dress.coat) },
   };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -55,7 +56,7 @@ function dressMaterial(source: THREE.Material, dress: DressSpec, bounds: Bounds)
         `#include <common>
 varying vec3 vBindPos;
 uniform float uMinY; uniform float uMaxY; uniform float uMaxAbsX;
-uniform vec3 uCoat; uniform vec3 uTrim; uniform vec3 uBelt; uniform vec3 uBoots; uniform vec3 uMittens;
+uniform vec3 uCoat; uniform vec3 uTrim; uniform vec3 uBelt; uniform vec3 uBoots; uniform vec3 uMittens; uniform vec3 uPants;
 vec4 dressZone(vec4 base) {
   float h = (vBindPos.y - uMinY) / max(0.0001, uMaxY - uMinY);
   float ax = abs(vBindPos.x) / max(0.0001, uMaxAbsX);
@@ -66,26 +67,61 @@ vec4 dressZone(vec4 base) {
   if (h > ${ZONES.collarLow}) return vec4(uTrim, base.a);
   if (h > ${ZONES.beltLow} && h < ${ZONES.beltHigh}) return vec4(uBelt, base.a);
   if (h > ${ZONES.hemLow} && h < ${ZONES.hemHigh}) return vec4(uTrim, base.a);
+  if (h < ${ZONES.hemLow}) return vec4(uPants, base.a);
   return vec4(uCoat, base.a);
 }`,
       )
       .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor = dressZone(diffuseColor);');
   };
-  mat.customProgramCacheKey = () => `dress-${dress.coat}-${dress.trim}-${dress.boots}-${dress.mittens}-${dress.belt}`;
+  mat.customProgramCacheKey = () => `dress-${dress.coat}-${dress.trim}-${dress.boots}-${dress.mittens}-${dress.belt}-${dress.pants ?? ''}`;
   return mat;
 }
 
-/** Färgar alla skinnade kroppsdelar som har ett grundmaterial. */
+/** Färgar kroppen, den skinnade delmodellen med flest hörn. Ögon och ögonbryn lämnas orörda. */
 export function dressBody(root: THREE.Object3D, dress: DressSpec): void {
+  let body: THREE.SkinnedMesh | null = null;
   root.traverse((obj) => {
     const mesh = obj as THREE.SkinnedMesh;
     if (!mesh.isSkinnedMesh) return;
-    const bounds = bindBounds(mesh);
-    if (Array.isArray(mesh.material)) {
-      mesh.material = mesh.material.map((m) => dressMaterial(m, dress, bounds));
-    } else {
-      mesh.material = dressMaterial(mesh.material, dress, bounds);
-    }
+    const count = mesh.geometry.getAttribute('position').count;
+    if (!body || count > body.geometry.getAttribute('position').count) body = mesh;
+  });
+  if (!body) return;
+  const mesh = body as THREE.SkinnedMesh;
+  const bounds = bindBounds(mesh);
+  mesh.material = Array.isArray(mesh.material)
+    ? mesh.material.map((m) => dressMaterial(m, dress, bounds))
+    : dressMaterial(mesh.material, dress, bounds);
+}
+
+/** Färgar om en modell men behåller texturens genomskinlighet, till exempel hår som blir vitt. */
+export function tintKeepAlpha(object: THREE.Object3D, hex: string): void {
+  const tint = new THREE.Color(hex);
+  object.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const recolor = (m: THREE.Material) => {
+      const mat = (m as THREE.MeshStandardMaterial).clone();
+      mat.color = tint.clone();
+      mat.emissive = tint.clone();
+      mat.emissiveIntensity = 0.35;
+      mat.emissiveMap = null;
+      mat.userData.baseEmissive = 0.35;
+      mat.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <map_fragment>',
+          `#ifdef USE_MAP
+  vec4 texel = texture2D( map, vMapUv );
+  float lum = dot( texel.rgb, vec3( 0.299, 0.587, 0.114 ) );
+  diffuseColor.rgb *= 0.78 + 0.22 * lum;
+  diffuseColor.a *= texel.a;
+#endif`,
+        );
+      };
+      mat.customProgramCacheKey = () => `tint-${hex}`;
+      return mat;
+    };
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(recolor) : recolor(mesh.material);
   });
 }
 
@@ -98,7 +134,7 @@ function glowMaterial(hex: string, emissive = 0.4): THREE.MeshStandardMaterial {
  * Mössa och skägg. Byggs i världskoordinater i viloposen och fästs sedan på huvudbenet,
  * så att benets egna axlar inte spelar någon roll.
  */
-export function attachHeadwear(root: THREE.Object3D, head: THREE.Bone, dress: DressSpec): THREE.Object3D[] {
+export function attachHeadwear(root: THREE.Object3D, head: THREE.Object3D, dress: DressSpec): THREE.Object3D[] {
   root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(root);
   const headPos = head.getWorldPosition(new THREE.Vector3());

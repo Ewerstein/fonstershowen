@@ -65,6 +65,20 @@ export function StylePicker({ t, locale, themeId, styleId, status, onChange }: S
           {t.styleLoadFailed}
         </p>
       )}
+      {theme && theme.credits.length > 0 && (
+        <p className="mt-4 text-xs text-mist">
+          {t.credits}:{' '}
+          {theme.credits.map((c, i) => (
+            <span key={c.url}>
+              {i > 0 && ', '}
+              <a href={c.url} target="_blank" rel="noreferrer" className="underline decoration-night-600 underline-offset-2 hover:text-frost">
+                {c.author}
+              </a>{' '}
+              ({c.license})
+            </span>
+          ))}
+        </p>
+      )}
     </section>
   );
 }

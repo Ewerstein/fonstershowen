@@ -60,6 +60,7 @@ const sv = {
   testStyleDescription: 'Byggd av grundformer. Bra när du kalibrerar.',
   styleShown: 'Visas nu',
   styleLoadFailed: 'Tomten gick inte att läsa in, så testtomten visas.',
+  credits: 'Rörelser',
   states: {
     sleep: ['Tomten sover', 'Showen är pausad. Väck tomten för att börja.'],
     awake: ['Tomten är vaken', 'Står i fönstret och väntar på någon att hälsa på.'],
@@ -133,6 +134,7 @@ const en: Strings = {
   testStyleDescription: 'Built from basic shapes. Handy while calibrating.',
   styleShown: 'Showing now',
   styleLoadFailed: 'The elf could not be loaded, so the test elf is shown.',
+  credits: 'Motion',
   states: {
     sleep: ['The elf is asleep', 'The show is paused. Wake the elf to start.'],
     awake: ['The elf is awake', 'Standing in the window, waiting for someone to greet.'],

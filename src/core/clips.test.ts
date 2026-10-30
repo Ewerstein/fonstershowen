@@ -23,6 +23,13 @@ describe('koppling av klipp till lägen', () => {
     expect(r.sleep).toBe('Idle_Loop');
   });
 
+  it('lånar aldrig firandets klipp till en vinkning', () => {
+    const r = resolveClips(available, { awake: ['Idle_Loop'], celebrate: ['Dance_Loop'] });
+    expect(r.waveBack).toBe('Idle_Loop');
+    expect(r.greet).toBe('Idle_Loop');
+    expect(r.celebrate).toBe('Dance_Loop');
+  });
+
   it('tar första kandidat som finns', () => {
     const r = resolveClips(available, { sleep: ['Lie_Loop', 'Sit_Idle'], awake: ['Idle_Loop'] });
     expect(r.sleep).toBe('Sit_Idle');
