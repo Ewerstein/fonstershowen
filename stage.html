@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <title>Fönstershowen · Scen</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div id="screen">
+      <div id="content">
+        <div id="mirror">
+          <canvas id="scene"></canvas>
+          <div id="pattern" hidden>
+            <div class="grid"></div>
+            <div class="ring"></div>
+            <span class="corner c1">1</span>
+            <span class="corner c2">2</span>
+            <span class="corner c3">3</span>
+            <span class="corner c4">4</span>
+            <span class="label">Fönstershowen</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="hint" hidden></div>
+    <script type="module" src="/src/stage/main.ts"></script>
+  </body>
+</html>
