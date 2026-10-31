@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createBus, type Bus } from '../shared/bus';
 import { loadSettings, saveSettings } from '../shared/settings';
-import type { ShowEvent, ShowSettings, StageStatus, WindowProfile } from '../shared/types';
+import type { CameraFrame, ShowEvent, ShowSettings, StageStatus, WindowProfile } from '../shared/types';
 
 /** Kontrollpanelens koppling till scenen: inställningar ut, status in. */
 export function useShow() {
   const [settings, setSettings] = useState<ShowSettings | null>(null);
   const [status, setStatus] = useState<StageStatus | null>(null);
+  const [cameraFrame, setCameraFrame] = useState<CameraFrame | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const busRef = useRef<Bus | null>(null);
   const settingsRef = useRef<ShowSettings | null>(null);
@@ -15,6 +16,7 @@ export function useShow() {
   useEffect(() => {
     const bus = createBus((message) => {
       if (message.kind === 'status') setStatus(message.status);
+      if (message.kind === 'cameraFrame') setCameraFrame(message.frame);
       if (message.kind === 'hello' && message.from === 'stage' && settingsRef.current) {
         bus.send({ kind: 'settings', settings: settingsRef.current });
       }
@@ -59,7 +61,22 @@ export function useShow() {
 
   const send = useCallback((event: ShowEvent) => busRef.current?.send({ kind: 'event', event }), []);
 
+  /** Ber scenen om förhandsbilder från kameran. Måste upprepas, annars slutar scenen skicka efter några sekunder. */
+  const previewCamera = useCallback((on: boolean) => busRef.current?.send({ kind: 'cameraPreview', on }), []);
+
   const connected = status !== null && now - status.at < 3500;
 
-  return { settings, status: connected ? status : null, connected, update, updateProfile, replaceSettings, send };
+  const frame = connected && cameraFrame && now - cameraFrame.at < 4000 ? cameraFrame : null;
+
+  return {
+    settings,
+    status: connected ? status : null,
+    connected,
+    cameraFrame: frame,
+    update,
+    updateProfile,
+    replaceSettings,
+    send,
+    previewCamera,
+  };
 }

@@ -31,6 +31,8 @@ export function WindowStatus({ t, status, aspect }: WindowStatusProps) {
               {status.fps} {t.fps}
             </Chip>
             {!status.fullscreen && <Chip>{t.fullscreenOff}</Chip>}
+            {status.camera.state === 'running' && <Chip>{t.cameraPeople(status.camera.people)}</Chip>}
+            {(status.camera.state === 'starting' || status.camera.state === 'error') && <Chip>{t.cameraState[status.camera.state]}</Chip>}
           </div>
         )}
       </div>

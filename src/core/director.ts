@@ -19,6 +19,10 @@ export const DURATIONS = {
   celebrate: 3.2,
   noticeBeforeGreet: 1.5,
   waveCooldown: 2.5,
+  /** Står besökaren kvar utan att vinka hälsar tomten igen efter så här lång tid. */
+  regreet: 20,
+  /** Försvinner besökaren kortare tid än så här räknas den som samma besökare och hälsas inte igen. */
+  sameVisitor: 6,
   autonomousMin: 5,
   autonomousMax: 10,
 } as const;
@@ -30,6 +34,9 @@ export class Director {
   private nextAutonomousIn: number;
   private visitorPresent = false;
   private visitorX = 0;
+  private greeted = false;
+  private sinceInteraction = 0;
+  private sinceLeave = Infinity;
   private readonly random: () => number;
   private readonly onChange?: DirectorOptions['onChange'];
   autonomous: boolean;
@@ -80,7 +87,11 @@ export class Director {
     switch (event.type) {
       case 'visitor.enter':
       case 'doorbell.motion':
+        if (this.visitorPresent) return;
         this.visitorPresent = true;
+        // Kameran kan tappa en person en kort stund. Då är det samma besökare och den hälsas inte igen.
+        if (this.sinceLeave > DURATIONS.sameVisitor) this.greeted = false;
+        this.sinceInteraction = 0;
         if (this._state === 'awake' || this._state === 'lookAround') this.go('notice');
         return;
       case 'doorbell.ring':
@@ -89,6 +100,7 @@ export class Director {
       case 'visitor.leave':
         this.visitorPresent = false;
         this.visitorX = 0;
+        this.sinceLeave = 0;
         if (this._state === 'notice' || this._state === 'greet') this.go('awake');
         return;
       case 'visitor.position':
@@ -97,6 +109,7 @@ export class Director {
       case 'gesture.wave':
         if (this.sinceLastWave >= DURATIONS.waveCooldown && this._state !== 'celebrate') {
           this.sinceLastWave = 0;
+          this.greeted = true;
           this.go('waveBack');
         }
         return;
@@ -109,28 +122,39 @@ export class Director {
   update(dt: number): void {
     this.timeInState += dt;
     this.sinceLastWave += dt;
+    this.sinceInteraction += dt;
+    this.sinceLeave += dt;
 
     switch (this._state) {
       case 'sleep':
         return;
       case 'lookAround':
-        if (this.timeInState >= DURATIONS.lookAround) this.go(this.visitorPresent ? 'notice' : 'awake');
+        if (this.timeInState >= DURATIONS.lookAround) this.afterAction();
         return;
       case 'greet':
-        if (this.timeInState >= DURATIONS.greet) this.go(this.visitorPresent ? 'notice' : 'awake');
+        if (this.timeInState >= DURATIONS.greet) {
+          this.greeted = true;
+          this.afterAction();
+        }
         return;
       case 'waveBack':
-        if (this.timeInState >= DURATIONS.waveBack) this.go(this.visitorPresent ? 'notice' : 'awake');
+        if (this.timeInState >= DURATIONS.waveBack) this.afterAction();
         return;
       case 'celebrate':
-        if (this.timeInState >= DURATIONS.celebrate) this.go(this.visitorPresent ? 'notice' : 'awake');
+        if (this.timeInState >= DURATIONS.celebrate) this.afterAction();
         return;
       case 'notice':
-        if (this.visitorPresent && this.timeInState >= DURATIONS.noticeBeforeGreet) this.go('greet');
-        if (!this.visitorPresent && this.timeInState >= DURATIONS.noticeBeforeGreet) this.go('awake');
+        if (this.timeInState >= DURATIONS.noticeBeforeGreet) {
+          this.go(this.visitorPresent && !this.greeted ? 'greet' : 'awake');
+        }
         return;
       case 'awake':
-        if (!this.autonomous || this.visitorPresent) return;
+        if (this.visitorPresent) {
+          // Tomten tittar på besökaren. Står någon kvar länge utan att vinka hälsar den igen.
+          if (this.sinceInteraction >= DURATIONS.regreet) this.go('greet');
+          return;
+        }
+        if (!this.autonomous) return;
         this.nextAutonomousIn -= dt;
         if (this.nextAutonomousIn <= 0) {
           this.nextAutonomousIn = this.pickAutonomousDelay();
@@ -141,9 +165,16 @@ export class Director {
     }
   }
 
+  /** Efter en kort rörelse: hälsa på en ny besökare, annars stå kvar och titta. */
+  private afterAction(): void {
+    if (this.visitorPresent && !this.greeted) this.go('notice');
+    else this.go('awake');
+  }
+
   private go(next: DirectorState): void {
     const previous = this._state;
     this.timeInState = 0;
+    if (next !== 'notice') this.sinceInteraction = 0;
     if (next === previous) return;
     this._state = next;
     if (next === 'awake') this.nextAutonomousIn = this.pickAutonomousDelay();

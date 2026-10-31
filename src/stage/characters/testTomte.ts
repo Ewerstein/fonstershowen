@@ -133,7 +133,8 @@ export class TestTomte implements Character {
       case 'sleep':
         return { ...REST, armRaiseRight: 0.05, armRaiseLeft: 0.05, headPitch: 0.45, headYaw: 0.1, glow: 0.3 };
       case 'awake':
-        return { ...REST, headYaw: idleYaw };
+        // Utan besökare är look 0 och tomten tittar sig lugnt omkring. Med besökare följer blicken.
+        return { ...REST, headYaw: look === 0 ? idleYaw : look * 0.7 + idleYaw * 0.3 };
       case 'lookAround':
         return { ...REST, headYaw: Math.sin(s * 1.6) * 0.75, headPitch: -0.05 };
       case 'notice':

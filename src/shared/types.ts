@@ -32,6 +32,27 @@ export interface WindowProfile {
 
 export type Locale = 'sv' | 'en';
 
+export type Sensitivity = 'low' | 'normal' | 'high';
+
+/** Del av kamerabilden, normaliserad 0..1. */
+export interface Zone {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface CameraSettings {
+  enabled: boolean;
+  /** Tom sträng betyder datorns standardkamera. */
+  deviceId: string;
+  /** Byt höger och vänster för blicken. */
+  flip: boolean;
+  sensitivity: Sensitivity;
+  /** Bara den här delen av bilden bevakas. Ger bättre träff på personer långt bort. */
+  zone: Zone;
+}
+
 export interface ShowSettings {
   version: 1;
   locale: Locale;
@@ -42,6 +63,7 @@ export interface ShowSettings {
   styleId: string;
   activeProfileId: string;
   profiles: WindowProfile[];
+  camera: CameraSettings;
 }
 
 /** Allt som kan hända och som regissören reagerar på. Sensorer skickar bara sådana här. */
@@ -55,6 +77,32 @@ export type ShowEvent =
   | { type: 'doorbell.motion' }
   | { type: 'doorbell.ring' };
 
+export type CameraError = 'denied' | 'notFound' | 'inUse' | 'model' | 'unsupported' | 'unknown';
+
+export interface CameraStatus {
+  state: 'off' | 'starting' | 'running' | 'error';
+  error?: CameraError;
+  detail?: string;
+  /** Kamerans namn enligt datorn. */
+  label?: string;
+  /** Bilder per sekund som kroppsmodellen hinner med. */
+  fps: number;
+  people: number;
+  present: boolean;
+  lastGesture?: { type: 'wave' | 'bothHands'; at: number };
+}
+
+/** Liten förhandsbild från kameran med kroppspunkter, för att rikta kameran från panelen. */
+export interface CameraFrame {
+  /** JPEG som data-URL. */
+  image: string;
+  aspect: number;
+  zone: Zone;
+  /** Per person: punkterna i PREVIEW_POINTS som [x, y, synlighet], normaliserade mot hela bilden. */
+  people: [number, number, number][][];
+  at: number;
+}
+
 export interface StageStatus {
   state: DirectorState;
   fps: number;
@@ -64,6 +112,7 @@ export interface StageStatus {
   /** Den figurstil scenen faktiskt visar. 'test' om temat inte gick att läsa in. */
   styleId: string;
   styleError?: string;
+  camera: CameraStatus;
   at: number;
 }
 
@@ -72,4 +121,6 @@ export type BusMessage =
   | { kind: 'settings'; settings: ShowSettings }
   | { kind: 'event'; event: ShowEvent }
   | { kind: 'status'; status: StageStatus }
-  | { kind: 'requestStatus' };
+  | { kind: 'requestStatus' }
+  | { kind: 'cameraPreview'; on: boolean }
+  | { kind: 'cameraFrame'; frame: CameraFrame };
