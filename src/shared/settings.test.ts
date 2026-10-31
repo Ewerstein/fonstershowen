@@ -26,3 +26,21 @@ describe('inställningar', () => {
     expect(s.camera.deviceId).toBe('');
   });
 });
+
+describe('schema i inställningar', () => {
+  it('ger schemat standardvärden och rättar felaktiga tider och platser', () => {
+    const s = normalizeSettings({
+      ...defaultSettings(),
+      schedule: { enabled: true, startMode: 'sunset', startTime: '25:00', endTime: '23:30', sunsetOffsetMin: -500, location: { lat: 999, lon: 12 } },
+    });
+    expect(s.schedule.enabled).toBe(true);
+    expect(s.schedule.startMode).toBe('sunset');
+    expect(s.schedule.startTime).toBe('15:30');
+    expect(s.schedule.endTime).toBe('23:30');
+    expect(s.schedule.sunsetOffsetMin).toBe(-120);
+    expect(s.schedule.location).toBeNull();
+    const old = { ...defaultSettings() } as Record<string, unknown>;
+    delete old.schedule;
+    expect(normalizeSettings(old).schedule.enabled).toBe(false);
+  });
+});

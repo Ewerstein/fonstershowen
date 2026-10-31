@@ -1,6 +1,7 @@
 import type { PoseLandmarker } from '@mediapipe/tasks-vision';
 import { GestureTracker, type BodyPose } from '../core/gestures';
 import { PREVIEW_POINTS } from '../shared/cameraPoints';
+import { POSE_MODEL_URLS } from '../shared/models';
 import { isFullZone } from '../shared/settings';
 import type { CameraError, CameraFrame, CameraSettings, CameraStatus, Sensitivity, ShowEvent } from '../shared/types';
 
@@ -10,14 +11,6 @@ import type { CameraError, CameraFrame, CameraSettings, CameraStatus, Sensitivit
  * och bara medan panelen ber om den.
  */
 
-/**
- * Kroppsmodellen hämtas från Google, låst version först och senaste som reserv.
- * VITE_POSE_MODEL_URL byter till en egen fil, till exempel vid test.
- */
-const MODEL_ROOT = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16';
-const MODEL_URLS: string[] = import.meta.env.VITE_POSE_MODEL_URL
-  ? [import.meta.env.VITE_POSE_MODEL_URL]
-  : [`${MODEL_ROOT}/1/pose_landmarker_full.task`, `${MODEL_ROOT}/latest/pose_landmarker_full.task`];
 const WASM_BASE = `${import.meta.env.BASE_URL}mediapipe`;
 
 /** Mål för analysen: lika många bilder som kameran ger, upp till 30 per sekund. */
@@ -68,6 +61,7 @@ export class CameraSensor {
   private detections = 0;
   private fpsWindowStart = 0;
   private lastGestureAt = -1;
+  private paused = false;
 
   constructor(private readonly handlers: Handlers) {
     this.video.muted = true;
@@ -80,12 +74,23 @@ export class CameraSensor {
     this.tracker.setOptions({ sensitivity: next.sensitivity, flip: next.flip });
     if (this.landmarker && this.landmarkerConfidence !== CONFIDENCE[next.sensitivity]) void this.applyConfidence(this.landmarker);
 
-    if (!next.enabled) {
+    if (!next.enabled || this.paused) {
       if (this.status.state !== 'off') this.stop();
       return;
     }
-    const cameraChanged = !previous || !previous.enabled || previous.deviceId !== next.deviceId;
+    const cameraChanged = !previous || !previous.enabled || previous.deviceId !== next.deviceId || this.status.state === 'off';
     if (cameraChanged || (this.status.state === 'error' && JSON.stringify(previous) !== JSON.stringify(next))) {
+      void this.start();
+    }
+  }
+
+  /** Vilar kameran medan fönstret är släckt för natten. Lampan på kameran slocknar också. */
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (paused) {
+      if (this.status.state !== 'off') this.stop();
+    } else if (this.settings?.enabled) {
       void this.start();
     }
   }
@@ -165,7 +170,7 @@ export class CameraSensor {
         const delegates: ('GPU' | 'CPU')[] = import.meta.env.VITE_POSE_DELEGATE === 'CPU' ? ['CPU'] : ['GPU', 'CPU'];
         let landmarker: PoseLandmarker | null = null;
         let lastError: unknown = null;
-        for (const url of MODEL_URLS) {
+        for (const url of POSE_MODEL_URLS) {
           for (const delegate of delegates) {
             try {
               landmarker = await create(url, delegate);

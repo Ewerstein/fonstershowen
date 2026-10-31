@@ -42,6 +42,18 @@ export interface Zone {
   h: number;
 }
 
+export interface ScheduleSettings {
+  enabled: boolean;
+  startMode: 'time' | 'sunset';
+  /** Starttid 'HH:MM' när startMode är 'time', och reserv när skymning inte går att räkna ut. */
+  startTime: string;
+  /** Minuter före (negativt) eller efter solnedgången. */
+  sunsetOffsetMin: number;
+  endTime: string;
+  /** Avrundad plats för solnedgången. Null tills användaren valt plats. */
+  location: { lat: number; lon: number } | null;
+}
+
 export interface CameraSettings {
   enabled: boolean;
   /** Tom sträng betyder datorns standardkamera. */
@@ -64,6 +76,7 @@ export interface ShowSettings {
   activeProfileId: string;
   profiles: WindowProfile[];
   camera: CameraSettings;
+  schedule: ScheduleSettings;
 }
 
 /** Allt som kan hända och som regissören reagerar på. Sensorer skickar bara sådana här. */
@@ -113,6 +126,8 @@ export interface StageStatus {
   styleId: string;
   styleError?: string;
   camera: CameraStatus;
+  /** Fönstret är släckt för natten enligt schemat. */
+  blackout: boolean;
   at: number;
 }
 
