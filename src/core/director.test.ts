@@ -47,9 +47,23 @@ describe('regissören', () => {
     d.handle({ type: 'visitor.enter' });
     run(d, DURATIONS.noticeBeforeGreet + DURATIONS.greet + 0.2);
     d.handle({ type: 'visitor.leave' });
+    run(d, DURATIONS.sameVisitor + 1);
     d.handle({ type: 'visitor.enter' });
     run(d, DURATIONS.noticeBeforeGreet + 0.1);
     expect(states.filter((s) => s === 'greet')).toHaveLength(2);
+  });
+
+  it('hälsar inte igen när kameran tappar besökaren en kort stund', () => {
+    const states: DirectorState[] = [];
+    const d = new Director({ autonomous: false, onChange: (s) => states.push(s) });
+    d.handle({ type: 'visitor.enter' });
+    run(d, DURATIONS.noticeBeforeGreet + DURATIONS.greet + 0.2);
+    d.handle({ type: 'visitor.leave' });
+    run(d, 1);
+    d.handle({ type: 'visitor.enter' });
+    run(d, DURATIONS.noticeBeforeGreet + DURATIONS.greet + 0.2);
+    expect(states.filter((s) => s === 'greet')).toHaveLength(1);
+    expect(d.state).toBe('awake');
   });
 
   it('svarar inte på vinkningar tätare än nedkylningen', () => {

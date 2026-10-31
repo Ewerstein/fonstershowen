@@ -19,13 +19,17 @@ const CROSSFADE = 0.35;
 /** Hur mycket huvudet följer besökaren i varje läge. */
 const HEAD_FOLLOW: Record<DirectorState, number> = {
   sleep: 0,
-  awake: 0.8,
+  awake: 1,
   lookAround: 0,
-  notice: 0.8,
-  greet: 0.65,
-  waveBack: 0.6,
+  notice: 1,
+  greet: 0.85,
+  waveBack: 0.8,
   celebrate: 0.2,
 };
+
+/** Största vridning av huvudet och kroppen mot besökaren, i radianer. Huvud och kropp tillsammans ger cirka 65 grader. */
+const HEAD_YAW = 0.8;
+const BODY_YAW = 0.35;
 
 const DEFAULT_OVERLAYS: Partial<Record<DirectorState, OverlayName>> = {
   greet: 'raiseHand',
@@ -91,6 +95,7 @@ export class GlbCharacter implements Character {
   private overlayWeight = 0;
   private boneScale: { bone: THREE.Object3D; scale: number }[] = [];
   private yaw = 0;
+  private bodyYaw = 0;
   private pitch = 0;
   private glow = 1;
   private readonly v1 = new THREE.Vector3();
@@ -268,9 +273,14 @@ export class GlbCharacter implements Character {
       }
     });
 
+    // Kroppen vrider sig lite mot besökaren, så att blicken syns på håll.
+    const bodyTarget = this.state === 'lookAround' || this.state === 'sleep' ? 0 : ctx.lookTarget * BODY_YAW * HEAD_FOLLOW[this.state];
+    this.bodyYaw += (bodyTarget - this.bodyYaw) * (1 - Math.exp(-3 * dt));
+    this.object.rotation.y = this.bodyYaw;
+
     // Huvudet: följer besökaren, tittar runt eller nickar till av sömn, ovanpå klippet.
     if (this.head) {
-      const look = this.state === 'lookAround' ? Math.sin(this.stateTime * 1.6) * 0.65 : ctx.lookTarget * 0.7 * HEAD_FOLLOW[this.state];
+      const look = this.state === 'lookAround' ? Math.sin(this.stateTime * 1.6) * 0.65 : ctx.lookTarget * HEAD_YAW * HEAD_FOLLOW[this.state];
       const nod = this.overlay === 'sleepy' ? 0.45 * this.overlayWeight : this.state === 'greet' ? Math.sin(this.stateTime * 5) * 0.06 : 0;
       this.yaw += (look - this.yaw) * (1 - Math.exp(-6 * dt));
       this.pitch += (nod - this.pitch) * (1 - Math.exp(-6 * dt));

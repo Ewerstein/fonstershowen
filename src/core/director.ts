@@ -20,7 +20,9 @@ export const DURATIONS = {
   noticeBeforeGreet: 1.5,
   waveCooldown: 2.5,
   /** Står besökaren kvar utan att vinka hälsar tomten igen efter så här lång tid. */
-  regreet: 12,
+  regreet: 20,
+  /** Försvinner besökaren kortare tid än så här räknas den som samma besökare och hälsas inte igen. */
+  sameVisitor: 6,
   autonomousMin: 5,
   autonomousMax: 10,
 } as const;
@@ -34,6 +36,7 @@ export class Director {
   private visitorX = 0;
   private greeted = false;
   private sinceInteraction = 0;
+  private sinceLeave = Infinity;
   private readonly random: () => number;
   private readonly onChange?: DirectorOptions['onChange'];
   autonomous: boolean;
@@ -86,7 +89,8 @@ export class Director {
       case 'doorbell.motion':
         if (this.visitorPresent) return;
         this.visitorPresent = true;
-        this.greeted = false;
+        // Kameran kan tappa en person en kort stund. Då är det samma besökare och den hälsas inte igen.
+        if (this.sinceLeave > DURATIONS.sameVisitor) this.greeted = false;
         this.sinceInteraction = 0;
         if (this._state === 'awake' || this._state === 'lookAround') this.go('notice');
         return;
@@ -96,7 +100,7 @@ export class Director {
       case 'visitor.leave':
         this.visitorPresent = false;
         this.visitorX = 0;
-        this.greeted = false;
+        this.sinceLeave = 0;
         if (this._state === 'notice' || this._state === 'greet') this.go('awake');
         return;
       case 'visitor.position':
@@ -119,6 +123,7 @@ export class Director {
     this.timeInState += dt;
     this.sinceLastWave += dt;
     this.sinceInteraction += dt;
+    this.sinceLeave += dt;
 
     switch (this._state) {
       case 'sleep':
