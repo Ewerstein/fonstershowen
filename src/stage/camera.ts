@@ -20,7 +20,8 @@ const MODEL_URLS: string[] = import.meta.env.VITE_POSE_MODEL_URL
   : [`${MODEL_ROOT}/1/pose_landmarker_full.task`, `${MODEL_ROOT}/latest/pose_landmarker_full.task`];
 const WASM_BASE = `${import.meta.env.BASE_URL}mediapipe`;
 
-const DETECT_INTERVAL_MS = 66;
+/** Mål för analysen: lika många bilder som kameran ger, upp till 30 per sekund. */
+const DETECT_INTERVAL_MS = 33;
 const PREVIEW_INTERVAL_MS = 250;
 const PREVIEW_TIMEOUT_MS = 5000;
 const STALL_MS = 5000;
@@ -200,8 +201,11 @@ export class CameraSensor {
   private loop(generation: number): void {
     const tick = () => {
       if (generation !== this.generation) return;
+      const started = performance.now();
       this.detect(generation);
-      if (generation === this.generation) this.timer = window.setTimeout(tick, DETECT_INTERVAL_MS);
+      // Analysens tid räknas av från väntan, annars blir takten lägre än målet.
+      const spent = performance.now() - started;
+      if (generation === this.generation) this.timer = window.setTimeout(tick, Math.max(4, DETECT_INTERVAL_MS - spent));
     };
     tick();
   }
