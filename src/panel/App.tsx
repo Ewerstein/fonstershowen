@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { SCREEN_ASPECT_DEFAULT } from '../shared/geometry';
 import { strings } from '../shared/i18n';
+import { formatTime, scheduleState } from '../core/schedule';
 import { activeProfile } from '../shared/settings';
 import type { Locale } from '../shared/types';
 import { SettingsFile } from './components/SettingsFile';
+import { SchedulePanel } from './components/SchedulePanel';
 import { SetupView } from './components/SetupView';
 import { StylePicker } from './components/StylePicker';
 import { Toggle } from './components/Toggle';
@@ -27,6 +29,8 @@ export function App() {
   const screenAspect = status ? status.screen.width / status.screen.height : SCREEN_ASPECT_DEFAULT;
 
   const handleOpen = async () => setOpenResult(await openStage());
+  const wake = status?.blackout && settings.schedule.enabled ? scheduleState(new Date(), settings.schedule).next : null;
+  const wakeTime = wake ? { time: formatTime(wake), tomorrow: wake.getDate() !== new Date().getDate() } : null;
 
   const openMessage =
     openResult === 'external' ? t.openedOnExternal : openResult === 'here' ? t.openedHere : openResult === 'blocked' ? t.popupBlocked : null;
@@ -79,7 +83,7 @@ export function App() {
         {tab === 'studio' ? (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)] lg:items-start">
             <div className="space-y-6">
-              <WindowStatus t={t} status={status} aspect={aspect} />
+              <WindowStatus t={t} status={status} aspect={aspect} wakeTime={wakeTime} />
               <StylePicker
                 t={t}
                 locale={settings.locale}
@@ -89,30 +93,37 @@ export function App() {
                 onChange={(styleId) => update((s) => ({ ...s, styleId }))}
               />
             </div>
-            <section className="rounded-[22px] border border-night-700 bg-night-900 p-5 sm:p-6">
-              <h2 className="font-display text-[21px] font-semibold">{t.triggerTitle}</h2>
-              <p className="mb-5 mt-1 text-[15px] text-mist">{t.triggerHint}</p>
-              <TriggerPad
+            <div className="space-y-6">
+              <section className="rounded-[22px] border border-night-700 bg-night-900 p-5 sm:p-6">
+                <h2 className="font-display text-[21px] font-semibold">{t.triggerTitle}</h2>
+                <p className="mb-5 mt-1 text-[15px] text-mist">{t.triggerHint}</p>
+                <TriggerPad
+                  t={t}
+                  state={status?.state ?? null}
+                  disabled={!connected}
+                  onAction={(action) => send({ type: 'manual', action })}
+                />
+                <div className="mt-5 divide-y divide-night-700 border-t border-night-700">
+                  <Toggle
+                    label={t.autonomous}
+                    hint={t.autonomousHint}
+                    checked={settings.autonomous}
+                    onChange={(autonomous) => update((s) => ({ ...s, autonomous }))}
+                  />
+                  <Toggle
+                    label={t.testPattern}
+                    hint={t.testPatternHint}
+                    checked={settings.testPattern}
+                    onChange={(testPattern) => update((s) => ({ ...s, testPattern }))}
+                  />
+                </div>
+              </section>
+              <SchedulePanel
                 t={t}
-                state={status?.state ?? null}
-                disabled={!connected}
-                onAction={(action) => send({ type: 'manual', action })}
+                schedule={settings.schedule}
+                onChange={(patch) => update((s) => ({ ...s, schedule: { ...s.schedule, ...patch } }))}
               />
-              <div className="mt-5 divide-y divide-night-700 border-t border-night-700">
-                <Toggle
-                  label={t.autonomous}
-                  hint={t.autonomousHint}
-                  checked={settings.autonomous}
-                  onChange={(autonomous) => update((s) => ({ ...s, autonomous }))}
-                />
-                <Toggle
-                  label={t.testPattern}
-                  hint={t.testPatternHint}
-                  checked={settings.testPattern}
-                  onChange={(testPattern) => update((s) => ({ ...s, testPattern }))}
-                />
-              </div>
-            </section>
+            </div>
           </div>
         ) : (
           <SetupView

@@ -11,6 +11,8 @@ Allt körs i webbläsaren på din dator. Inga konton, ingen server, inga kamerab
 3. Gå till **Installera**: skriv in fönstrets mått, dra de fyra hörnen tills testbilden ligger i fönstret och slå på spegling om projektorn lyser på duken inifrån.
 4. Gå till **Studio** och stäng av testbilden.
 5. Under **Installera**, steg 3: slå på kameran, välj kamera och dra en ruta över gatan i förhandsbilden.
+6. Under **Studio**, Schema: välj start vid klockslag eller i skymningen, och en tid för stopp.
+7. Klicka på scenen och tryck Ctrl+Cmd+F. Macens egen helskärm ligger kvar om sidan laddas om.
 
 Tangenter på scenen: F helskärm, W vinka, C fira, L titta runt, S sova eller vakna.
 
@@ -24,6 +26,13 @@ Scenen läser kameran och hittar kroppar med MediaPipe Pose. Allt räknas ut i w
 - Personer långt bort räknas inte. En mindre bevakad yta gör att de kommer närmare i modellens ögon.
 
 Reglerna finns i `src/core/gestures.ts` och är testade med påhittade rörelser i `gestures.test.ts`.
+
+## Drift utan internet och självläkning
+
+- En service worker (`public/sw.js`) sparar appen, temat, WebAssembly och kroppsmodellen. Efter en kväll med internet fungerar showen utan.
+- Utanför schemat är fönstret svart, grafiken ritas inte och kameran vilar. När showen släcks laddas scenen om, så att nästa kväll börjar rent.
+- Scenen laddas om om grafiken tappas eller slutar rita, och kameran startar om om den hänger sig eller kopplas ur.
+- Steg 4 under **Installera** visar om allt finns sparat.
 
 ## Utveckla
 

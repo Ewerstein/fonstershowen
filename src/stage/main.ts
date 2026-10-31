@@ -1,10 +1,12 @@
 import './stage.css';
 import { Director } from '../core/director';
+import { scheduleState } from '../core/schedule';
 import { createBus } from '../shared/bus';
 import { strings } from '../shared/i18n';
 import { activeProfile, loadSettings } from '../shared/settings';
 import type { ShowSettings, StageStatus } from '../shared/types';
 import { loadTheme, themeBase } from '../shared/theme';
+import { registerServiceWorker } from '../shared/offline';
 import { CameraSensor } from './camera';
 import { GlbCharacter } from './characters/glbCharacter';
 import { TestTomte } from './characters/testTomte';
@@ -29,9 +31,48 @@ scene.add(character.object);
 const director = new Director({
   onChange: (state) => {
     character.setState(state);
+    updateBlackout();
     sendStatus();
   },
 });
+
+// Schemat: showen vaknar och somnar på bestämda tider. Utanför tiden är fönstret svart och kameran vilar.
+// Schemat agerar bara när tiden passerar en gräns, så en knapptryckning i panelen gäller till nästa gräns.
+let scheduleOn: boolean | null = null;
+let blackout = false;
+let blackoutSince = 0;
+
+function applySchedule(): void {
+  const s = settings?.schedule;
+  if (!s?.enabled) {
+    if (scheduleOn === false && director.state === 'sleep') director.handle({ type: 'manual', action: 'wake' });
+    scheduleOn = null;
+    updateBlackout();
+    return;
+  }
+  const on = scheduleState(new Date(), s).on;
+  if (on === scheduleOn) return;
+  const first = scheduleOn === null;
+  scheduleOn = on;
+  director.handle({ type: 'manual', action: on ? 'wake' : 'sleep' });
+  updateBlackout();
+  // En omladdning när showen släcks rensar minnet inför nästa kväll. Bara när det inte tar bort helskärmen.
+  if (!on && !first) {
+    window.setTimeout(() => {
+      if (blackout && !document.fullscreenElement) location.reload();
+    }, 8000);
+  }
+}
+
+function updateBlackout(): void {
+  const next = scheduleOn === false && director.state === 'sleep';
+  if (next === blackout) return;
+  blackout = next;
+  blackoutSince = performance.now();
+  document.body.classList.toggle('blackout', next);
+  camera.setPaused(next);
+  sendStatus();
+}
 
 const camera = new CameraSensor({
   onEvents: (events) => events.forEach((event) => director.handle(event)),
@@ -105,6 +146,7 @@ function applySettings(next: ShowSettings): void {
   layout();
   void applyStyle(next.themeId, next.styleId);
   camera.configure(next.camera);
+  applySchedule();
 }
 
 function layout(): void {
@@ -129,12 +171,13 @@ function sendStatus(): void {
   const status: StageStatus = {
     state: director.state,
     fps,
-    fullscreen: document.fullscreenElement !== null,
+    fullscreen: isFullscreenLike(),
     autonomous: director.autonomous,
     screen: { width: window.innerWidth, height: window.innerHeight },
     styleId: shownStyle,
     styleError,
     camera: camera.status,
+    blackout,
     at: Date.now(),
   };
   bus.send({ kind: 'status', status });
@@ -150,7 +193,8 @@ function frame(now: number): void {
   director.update(dt);
   character.update(dt, { lookTarget: director.lookTarget, time });
   scene.update(dt, time);
-  scene.render();
+  // När fönstret är släckt och tonats ut behöver grafiken inte ritas.
+  if (!blackout || now - blackoutSince < 4000) scene.render();
 
   frames++;
   if (now - fpsWindowStart >= 1000) {
@@ -168,8 +212,14 @@ async function toggleFullscreen(): Promise<void> {
   else await document.documentElement.requestFullscreen();
 }
 
+/** Helskärm från webbsidan eller från Mac (Ctrl+Cmd+F). Mac-helskärmen ligger kvar när sidan laddas om. */
+function isFullscreenLike(): boolean {
+  if (document.fullscreenElement) return true;
+  return Math.abs(window.innerWidth - screen.width) <= 2 && Math.abs(window.innerHeight - screen.height) <= 2;
+}
+
 function updateHint(): void {
-  hint.hidden = document.fullscreenElement !== null;
+  hint.hidden = isFullscreenLike();
 }
 
 document.addEventListener('fullscreenchange', () => {
@@ -195,6 +245,7 @@ document.addEventListener('mousemove', () => {
 
 window.addEventListener('resize', () => {
   layout();
+  updateHint();
   sendStatus();
 });
 
@@ -229,6 +280,8 @@ async function boot(): Promise<void> {
   bus.send({ kind: 'hello', from: 'stage' });
   sendStatus();
   requestAnimationFrame(frame);
+  window.setInterval(applySchedule, 15000);
+  registerServiceWorker();
 }
 
 void boot();

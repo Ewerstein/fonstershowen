@@ -24,6 +24,12 @@ body.show-cursor {
   left: 0;
   top: 0;
   transform-origin: 0 0;
+  transition: opacity 3s ease;
+}
+
+/* Släckt för natten enligt schemat. Projektorn visar bara svart. */
+body.blackout #content {
+  opacity: 0;
 }
 
 #mirror {

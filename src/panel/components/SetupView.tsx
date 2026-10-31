@@ -2,6 +2,7 @@ import { defaultCorners, projectorDistanceCm } from '../../shared/geometry';
 import type { Strings } from '../../shared/i18n';
 import type { CameraFrame, CameraStatus, MaskShape, ShowSettings, WindowProfile } from '../../shared/types';
 import { CameraStep } from './CameraStep';
+import { EveningStep } from './EveningStep';
 import { CornerEditor } from './CornerEditor';
 import { Toggle } from './Toggle';
 
@@ -129,6 +130,10 @@ export function SetupView({
           onChange={(patch) => onSettings((s) => ({ ...s, camera: { ...s.camera, ...patch } }))}
           onPreview={onCameraPreview}
         />
+      </Step>
+
+      <Step number={4} title={t.stepEvening} hint={t.stepEveningHint}>
+        <EveningStep t={t} themeId={settings.themeId} cameraEnabled={settings.camera.enabled} />
       </Step>
     </ol>
   );
