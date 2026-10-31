@@ -1,0 +1,202 @@
+{
+  "id": "jul",
+  "name": {
+    "sv": "Jul",
+    "en": "Christmas"
+  },
+  "defaultStyle": "klassisk",
+  "styles": [
+    {
+      "id": "klassisk",
+      "name": {
+        "sv": "Klassisk tomte",
+        "en": "Classic Santa"
+      },
+      "description": {
+        "sv": "Röd rock, rund mage och stort vitt skägg.",
+        "en": "Red coat, round belly and a big white beard."
+      },
+      "model": "animations.glb",
+      "animations": [],
+      "clips": {
+        "awake": [
+          "Idle_Loop"
+        ],
+        "lookAround": [
+          "Idle_Loop"
+        ],
+        "notice": [
+          "Idle_Loop"
+        ],
+        "greet": [
+          "Idle_Loop"
+        ],
+        "waveBack": [
+          "Idle_Loop"
+        ],
+        "celebrate": [
+          "Dance_Loop"
+        ],
+        "sleep": [
+          "Idle_Loop"
+        ]
+      },
+      "rig": {
+        "head": "Head",
+        "upperArm": "upperarm_r",
+        "lowerArm": "lowerarm_r",
+        "hand": "hand_r"
+      },
+      "puppet": {
+        "coat": "#cf2a2f",
+        "trim": "#f6f2ea",
+        "belt": "#2a1c15",
+        "buckle": "#f2c14e",
+        "pants": "#cf2a2f",
+        "boots": "#3a2419",
+        "mittens": "#2f8a55",
+        "skin": "#f2c5a3",
+        "cheeks": "#f08a80",
+        "hair": "#f6f2ea",
+        "beard": "#ffffff",
+        "beardLength": 0.6,
+        "hat": "classic",
+        "hatColor": "#cf2a2f",
+        "skirt": "coat",
+        "belly": 1.15,
+        "headScale": 1.05
+      }
+    },
+    {
+      "id": "tomtemor",
+      "name": {
+        "sv": "Tomtemor",
+        "en": "Mrs Claus"
+      },
+      "description": {
+        "sv": "Lång röd klänning, vit knut och mjuk luva.",
+        "en": "Long red dress, white bun and a soft cap."
+      },
+      "model": "animations.glb",
+      "animations": [],
+      "clips": {
+        "awake": [
+          "Idle_Loop"
+        ],
+        "lookAround": [
+          "Idle_Loop"
+        ],
+        "notice": [
+          "Idle_Loop"
+        ],
+        "greet": [
+          "Idle_Loop"
+        ],
+        "waveBack": [
+          "Idle_Loop"
+        ],
+        "celebrate": [
+          "Dance_Loop"
+        ],
+        "sleep": [
+          "Idle_Loop"
+        ]
+      },
+      "rig": {
+        "head": "Head",
+        "upperArm": "upperarm_r",
+        "lowerArm": "lowerarm_r",
+        "hand": "hand_r"
+      },
+      "puppet": {
+        "coat": "#bd2333",
+        "trim": "#f6f2ea",
+        "belt": "#f6f2ea",
+        "buckle": "#f2c14e",
+        "pants": "#bd2333",
+        "boots": "#3a2419",
+        "mittens": "#f6f2ea",
+        "skin": "#f4c9ab",
+        "cheeks": "#f2848a",
+        "hair": "#eeeae4",
+        "bun": true,
+        "beardLength": 0,
+        "hat": "floppy",
+        "hatColor": "#bd2333",
+        "skirt": "dress",
+        "belly": 1.0,
+        "headScale": 1.0
+      }
+    },
+    {
+      "id": "gardstomte",
+      "name": {
+        "sv": "Gårdstomte",
+        "en": "Farm elf"
+      },
+      "description": {
+        "sv": "Grå vadmal, bruna byxor och lång röd luva.",
+        "en": "Grey wool, brown trousers and a long red cap."
+      },
+      "model": "animations.glb",
+      "animations": [],
+      "clips": {
+        "awake": [
+          "Idle_Loop"
+        ],
+        "lookAround": [
+          "Idle_Loop"
+        ],
+        "notice": [
+          "Idle_Loop"
+        ],
+        "greet": [
+          "Idle_Loop"
+        ],
+        "waveBack": [
+          "Idle_Loop"
+        ],
+        "celebrate": [
+          "Jump_Loop",
+          "Dance_Loop"
+        ],
+        "sleep": [
+          "Idle_Loop"
+        ]
+      },
+      "rig": {
+        "head": "Head",
+        "upperArm": "upperarm_r",
+        "lowerArm": "lowerarm_r",
+        "hand": "hand_r"
+      },
+      "puppet": {
+        "coat": "#8a929c",
+        "trim": "#c9ced4",
+        "belt": "#3a2a1f",
+        "buckle": "#c9a24e",
+        "pants": "#6a4f3b",
+        "boots": "#3a2a1f",
+        "mittens": "#a8392e",
+        "skin": "#efc3a0",
+        "cheeks": "#ec8378",
+        "hair": "#f1eee8",
+        "beard": "#f6f4ef",
+        "beardLength": 1.1,
+        "hat": "tall",
+        "hatColor": "#b3262b",
+        "skirt": "tunic",
+        "belly": 0.95,
+        "headScale": 1.15
+      }
+    }
+  ],
+  "credits": [
+    {
+      "what": "Universal Animation Library (rörelser och skelett)",
+      "author": "Quaternius",
+      "license": "CC0 1.0",
+      "url": "https://quaternius.itch.io/universal-animation-library"
+    }
+  ]
+}

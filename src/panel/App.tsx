@@ -5,6 +5,7 @@ import { activeProfile } from '../shared/settings';
 import type { Locale } from '../shared/types';
 import { SettingsFile } from './components/SettingsFile';
 import { SetupView } from './components/SetupView';
+import { StylePicker } from './components/StylePicker';
 import { Toggle } from './components/Toggle';
 import { TriggerPad } from './components/TriggerPad';
 import { WindowStatus } from './components/WindowStatus';
@@ -77,7 +78,17 @@ export function App() {
       <main className="mt-6">
         {tab === 'studio' ? (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)] lg:items-start">
-            <WindowStatus t={t} status={status} aspect={aspect} />
+            <div className="space-y-6">
+              <WindowStatus t={t} status={status} aspect={aspect} />
+              <StylePicker
+                t={t}
+                locale={settings.locale}
+                themeId={settings.themeId}
+                styleId={settings.styleId}
+                status={status}
+                onChange={(styleId) => update((s) => ({ ...s, styleId }))}
+              />
+            </div>
             <section className="rounded-[22px] border border-night-700 bg-night-900 p-5 sm:p-6">
               <h2 className="font-display text-[21px] font-semibold">{t.triggerTitle}</h2>
               <p className="mb-5 mt-1 text-[15px] text-mist">{t.triggerHint}</p>
