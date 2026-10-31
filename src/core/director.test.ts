@@ -24,7 +24,32 @@ describe('regissören', () => {
     d.handle({ type: 'gesture.wave' });
     expect(d.state).toBe('waveBack');
     run(d, DURATIONS.waveBack + 0.1);
-    expect(d.state).toBe('notice');
+    expect(d.state).toBe('awake');
+  });
+
+  it('hälsar en gång och tittar sedan på besökaren, och hälsar igen efter en stund', () => {
+    const states: DirectorState[] = [];
+    const d = new Director({ autonomous: true, onChange: (s) => states.push(s) });
+    d.handle({ type: 'visitor.enter' });
+    d.handle({ type: 'visitor.enter' });
+    run(d, DURATIONS.noticeBeforeGreet + DURATIONS.greet + 0.2);
+    expect(d.state).toBe('awake');
+    run(d, DURATIONS.regreet - 2);
+    expect(states.filter((s) => s === 'greet')).toHaveLength(1);
+    expect(d.state).toBe('awake');
+    run(d, 2.5);
+    expect(states.filter((s) => s === 'greet')).toHaveLength(2);
+  });
+
+  it('hälsar på nytt när en ny besökare kommer', () => {
+    const states: DirectorState[] = [];
+    const d = new Director({ autonomous: false, onChange: (s) => states.push(s) });
+    d.handle({ type: 'visitor.enter' });
+    run(d, DURATIONS.noticeBeforeGreet + DURATIONS.greet + 0.2);
+    d.handle({ type: 'visitor.leave' });
+    d.handle({ type: 'visitor.enter' });
+    run(d, DURATIONS.noticeBeforeGreet + 0.1);
+    expect(states.filter((s) => s === 'greet')).toHaveLength(2);
   });
 
   it('svarar inte på vinkningar tätare än nedkylningen', () => {

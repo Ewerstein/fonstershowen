@@ -15,7 +15,7 @@ import { useShow } from './useShow';
 type Tab = 'studio' | 'setup';
 
 export function App() {
-  const { settings, status, connected, update, updateProfile, replaceSettings, send } = useShow();
+  const { settings, status, connected, cameraFrame, update, updateProfile, replaceSettings, send, previewCamera } = useShow();
   const [tab, setTab] = useState<Tab>('studio');
   const [openResult, setOpenResult] = useState<OpenResult | null>(null);
 
@@ -122,6 +122,10 @@ export function App() {
             screenAspect={screenAspect}
             onProfile={updateProfile}
             onSettings={update}
+            cameraStatus={status?.camera ?? null}
+            cameraFrame={cameraFrame}
+            connected={connected}
+            onCameraPreview={previewCamera}
           />
         )}
       </main>

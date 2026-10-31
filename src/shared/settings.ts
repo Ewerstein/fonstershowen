@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval';
 import { defaultCorners } from './geometry';
-import type { Corners, Locale, MaskShape, ShowSettings, WindowProfile } from './types';
+import type { CameraSettings, Corners, Locale, MaskShape, Sensitivity, ShowSettings, WindowProfile, Zone } from './types';
 
 const STORAGE_KEY = 'fonstershowen:settings';
 
@@ -19,6 +19,16 @@ export function createProfile(partial: Partial<WindowProfile> = {}): WindowProfi
   };
 }
 
+export const FULL_ZONE: Zone = { x: 0, y: 0, w: 1, h: 1 };
+
+export function defaultCamera(): CameraSettings {
+  return { enabled: false, deviceId: '', flip: false, sensitivity: 'normal', zone: { ...FULL_ZONE } };
+}
+
+export function isFullZone(zone: Zone): boolean {
+  return zone.x <= 0.001 && zone.y <= 0.001 && zone.w >= 0.999 && zone.h >= 0.999;
+}
+
 export function defaultSettings(): ShowSettings {
   const profile = createProfile();
   return {
@@ -30,6 +40,7 @@ export function defaultSettings(): ShowSettings {
     styleId: '',
     activeProfileId: profile.id,
     profiles: [profile],
+    camera: defaultCamera(),
   };
 }
 
@@ -40,6 +51,7 @@ export function activeProfile(settings: ShowSettings): WindowProfile {
 }
 
 const MASKS: MaskShape[] = ['rect', 'rounded', 'arch'];
+const SENSITIVITIES: Sensitivity[] = ['low', 'normal', 'high'];
 const LOCALES: Locale[] = ['sv', 'en'];
 
 function num(value: unknown, fallback: number, min: number, max: number): number {
@@ -73,6 +85,27 @@ function normalizeProfile(value: unknown): WindowProfile | null {
   };
 }
 
+export function normalizeZone(value: unknown): Zone {
+  if (!value || typeof value !== 'object') return { ...FULL_ZONE };
+  const v = value as Partial<Zone>;
+  const w = num(v.w, 1, 0.1, 1);
+  const h = num(v.h, 1, 0.1, 1);
+  return { x: num(v.x, 0, 0, 1 - w), y: num(v.y, 0, 0, 1 - h), w, h };
+}
+
+function normalizeCamera(value: unknown): CameraSettings {
+  const fallback = defaultCamera();
+  if (!value || typeof value !== 'object') return fallback;
+  const v = value as Partial<CameraSettings>;
+  return {
+    enabled: typeof v.enabled === 'boolean' ? v.enabled : fallback.enabled,
+    deviceId: typeof v.deviceId === 'string' ? v.deviceId.slice(0, 200) : '',
+    flip: typeof v.flip === 'boolean' ? v.flip : false,
+    sensitivity: SENSITIVITIES.includes(v.sensitivity as Sensitivity) ? (v.sensitivity as Sensitivity) : 'normal',
+    zone: normalizeZone(v.zone),
+  };
+}
+
 /** Tar emot okänd data (från lagring eller en importerad fil) och returnerar giltiga inställningar. */
 export function normalizeSettings(value: unknown): ShowSettings {
   const fallback = defaultSettings();
@@ -92,6 +125,7 @@ export function normalizeSettings(value: unknown): ShowSettings {
     styleId: typeof v.styleId === 'string' && ID_PATTERN.test(v.styleId) ? v.styleId : '',
     activeProfileId,
     profiles,
+    camera: normalizeCamera(v.camera),
   };
 }
 

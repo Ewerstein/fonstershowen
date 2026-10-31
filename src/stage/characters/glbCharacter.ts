@@ -19,7 +19,7 @@ const CROSSFADE = 0.35;
 /** Hur mycket huvudet följer besökaren i varje läge. */
 const HEAD_FOLLOW: Record<DirectorState, number> = {
   sleep: 0,
-  awake: 0.15,
+  awake: 0.8,
   lookAround: 0,
   notice: 0.8,
   greet: 0.65,

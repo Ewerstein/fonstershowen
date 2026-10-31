@@ -5,6 +5,7 @@ import { strings } from '../shared/i18n';
 import { activeProfile, loadSettings } from '../shared/settings';
 import type { ShowSettings, StageStatus } from '../shared/types';
 import { loadTheme, themeBase } from '../shared/theme';
+import { CameraSensor } from './camera';
 import { GlbCharacter } from './characters/glbCharacter';
 import { TestTomte } from './characters/testTomte';
 import type { Character } from './characters/types';
@@ -30,6 +31,12 @@ const director = new Director({
     character.setState(state);
     sendStatus();
   },
+});
+
+const camera = new CameraSensor({
+  onEvents: (events) => events.forEach((event) => director.handle(event)),
+  onStatus: () => sendStatus(),
+  onFrame: (frame) => bus.send({ kind: 'cameraFrame', frame }),
 });
 
 function swapCharacter(next: Character, styleId: string): void {
@@ -79,6 +86,9 @@ const bus = createBus((message) => {
     case 'event':
       director.handle(message.event);
       break;
+    case 'cameraPreview':
+      camera.setPreview(message.on);
+      break;
     case 'requestStatus':
     case 'hello':
       if (message.kind === 'requestStatus' || message.from === 'panel') sendStatus();
@@ -94,6 +104,7 @@ function applySettings(next: ShowSettings): void {
   hint.textContent = strings(next.locale).fullscreenHint;
   layout();
   void applyStyle(next.themeId, next.styleId);
+  camera.configure(next.camera);
 }
 
 function layout(): void {
@@ -123,6 +134,7 @@ function sendStatus(): void {
     screen: { width: window.innerWidth, height: window.innerHeight },
     styleId: shownStyle,
     styleError,
+    camera: camera.status,
     at: Date.now(),
   };
   bus.send({ kind: 'status', status });

@@ -1,6 +1,7 @@
 import { defaultCorners, projectorDistanceCm } from '../../shared/geometry';
 import type { Strings } from '../../shared/i18n';
-import type { MaskShape, ShowSettings, WindowProfile } from '../../shared/types';
+import type { CameraFrame, CameraStatus, MaskShape, ShowSettings, WindowProfile } from '../../shared/types';
+import { CameraStep } from './CameraStep';
 import { CornerEditor } from './CornerEditor';
 import { Toggle } from './Toggle';
 
@@ -11,9 +12,24 @@ interface SetupViewProps {
   screenAspect: number;
   onProfile: (patch: Partial<WindowProfile>) => void;
   onSettings: (change: (s: ShowSettings) => ShowSettings) => void;
+  cameraStatus: CameraStatus | null;
+  cameraFrame: CameraFrame | null;
+  connected: boolean;
+  onCameraPreview: (on: boolean) => void;
 }
 
-export function SetupView({ t, settings, profile, screenAspect, onProfile, onSettings }: SetupViewProps) {
+export function SetupView({
+  t,
+  settings,
+  profile,
+  screenAspect,
+  onProfile,
+  onSettings,
+  cameraStatus,
+  cameraFrame,
+  connected,
+  onCameraPreview,
+}: SetupViewProps) {
   const masks: { value: MaskShape; label: string }[] = [
     { value: 'rect', label: t.maskRect },
     { value: 'rounded', label: t.maskRounded },
@@ -103,8 +119,16 @@ export function SetupView({ t, settings, profile, screenAspect, onProfile, onSet
         </div>
       </Step>
 
-      <Step number={3} title={t.stepCamera} hint={t.stepCameraHint} muted>
-        <span className="inline-block rounded-full border border-night-600 px-3 py-1 text-sm text-mist">{t.comingSoon}</span>
+      <Step number={3} title={t.stepCamera} hint={t.stepCameraHint}>
+        <CameraStep
+          t={t}
+          camera={settings.camera}
+          status={cameraStatus}
+          frame={cameraFrame}
+          connected={connected}
+          onChange={(patch) => onSettings((s) => ({ ...s, camera: { ...s.camera, ...patch } }))}
+          onPreview={onCameraPreview}
+        />
       </Step>
     </ol>
   );
@@ -114,17 +138,15 @@ function Step({
   number,
   title,
   hint,
-  muted,
   children,
 }: {
   number: number;
   title: string;
   hint: string;
-  muted?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <li className={`rounded-[22px] border border-night-700 bg-night-900 p-5 sm:p-6 ${muted ? 'opacity-70' : ''}`}>
+    <li className="rounded-[22px] border border-night-700 bg-night-900 p-5 sm:p-6">
       <div className="flex gap-4">
         <span
           aria-hidden="true"
