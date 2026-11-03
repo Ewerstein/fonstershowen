@@ -153,7 +153,8 @@ function CameraStatusLine({ t, enabled, status }: { t: Strings; enabled: boolean
   const parts = [t.cameraPeople(status.people), `${status.fps} ${t.cameraFps}`];
   if ((status.gain ?? 1) > 1.2) parts.push(t.cameraBoosted);
   // Under ungefär 10 av 255 finns för lite ljus att ljusa upp. Då är bilden mest brus.
-  const tooDark = status.light !== undefined && status.light >= 0 && status.light < 10;
+  // Varningen visas bara när ingen syns. En upplyst person framför en mörk gata ger också lågt medelljus.
+  const tooDark = status.people === 0 && status.light !== undefined && status.light >= 0 && status.light < 10;
   if (status.lastGesture && now - status.lastGesture.at < 60000) {
     parts.push(t.cameraGesture(status.lastGesture.type, Math.max(0, Math.round((now - status.lastGesture.at) / 1000))));
   }
