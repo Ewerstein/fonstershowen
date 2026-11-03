@@ -253,15 +253,14 @@ export class CameraSensor {
       this.fail(generation, 'model', error instanceof Error ? error.message : String(error));
       return;
     }
-    this.poses = landmarks.map((points) =>
-      points.map((p) => ({
-        x: full ? p.x : zone.x + p.x * zone.w,
-        y: full ? p.y : zone.y + p.y * zone.h,
-        visibility: p.visibility ?? 0,
-      })),
-    );
+    // Modellen svarar i den bevakade ytans mått. Gesterna räknas där, så att en person långt bort
+    // räknas som nära när rutan är dragen över gatan, och blicken följer gatan från kant till kant.
+    const local: BodyPose[] = landmarks.map((points) => points.map((p) => ({ x: p.x, y: p.y, visibility: p.visibility ?? 0 })));
+    // Förhandsbilden visar hela bilden, så punkterna räknas om till den.
+    this.poses = full ? local : local.map((pose) => pose.map((p) => ({ ...p, x: zone.x + p.x * zone.w, y: zone.y + p.y * zone.h })));
 
-    const events = this.tracker.update(now, this.poses, vw / vh);
+    const aspect = full ? vw / vh : (zone.w * vw) / (zone.h * vh);
+    const events = this.tracker.update(now, local, aspect);
     if (events.length > 0) this.handlers.onEvents(events);
 
     this.detections++;
