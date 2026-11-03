@@ -14,6 +14,7 @@ import type { Character } from './characters/types';
 import { computeLayout } from './projection';
 import { ShowScene } from './scene';
 
+const screenEl = document.getElementById('screen') as HTMLDivElement;
 const content = document.getElementById('content') as HTMLDivElement;
 const mirror = document.getElementById('mirror') as HTMLDivElement;
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -149,10 +150,37 @@ function applySettings(next: ShowSettings): void {
   applySchedule();
 }
 
+/**
+ * Skärmen som den står på fönstret. Ligger projektorn på sidan vrids hela scenen 90 eller 270 grader,
+ * så att hörnen, testbilden och tomten står rätt. Resten av appen räknar med den vridna skärmen.
+ */
+function screenSize(): { width: number; height: number } {
+  const rotation = settings ? activeProfile(settings).rotation : 0;
+  return rotation === 0
+    ? { width: window.innerWidth, height: window.innerHeight }
+    : { width: window.innerHeight, height: window.innerWidth };
+}
+
+function rotateScreen(): void {
+  const rotation = settings ? activeProfile(settings).rotation : 0;
+  const s = screenEl.style;
+  if (rotation === 0) {
+    s.width = s.height = s.transform = s.transformOrigin = s.right = s.bottom = '';
+    return;
+  }
+  s.right = s.bottom = 'auto';
+  s.width = `${window.innerHeight}px`;
+  s.height = `${window.innerWidth}px`;
+  s.transformOrigin = '0 0';
+  s.transform = rotation === 90 ? `translateX(${window.innerWidth}px) rotate(90deg)` : `translateY(${window.innerHeight}px) rotate(270deg)`;
+}
+
 function layout(): void {
   if (!settings) return;
   const profile = activeProfile(settings);
-  const l = computeLayout(profile, window.innerWidth, window.innerHeight);
+  rotateScreen();
+  const size = screenSize();
+  const l = computeLayout(profile, size.width, size.height);
   content.style.width = `${l.width}px`;
   content.style.height = `${l.height}px`;
   content.style.transform = l.transform;
@@ -173,7 +201,7 @@ function sendStatus(): void {
     fps,
     fullscreen: isFullscreenLike(),
     autonomous: director.autonomous,
-    screen: { width: window.innerWidth, height: window.innerHeight },
+    screen: screenSize(),
     styleId: shownStyle,
     styleError,
     camera: camera.status,

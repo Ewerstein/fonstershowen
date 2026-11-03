@@ -28,7 +28,11 @@ export interface WindowProfile {
   mask: MaskShape;
   /** Hur mycket masken dras in från kanten, i procent av bildens kortaste sida. */
   maskInsetPct: number;
+  /** Projektorn ligger på sidan: bilden vrids 90 eller 270 grader så att den står rätt på fönstret. */
+  rotation: Rotation;
 }
+
+export type Rotation = 0 | 90 | 270;
 
 export type Locale = 'sv' | 'en';
 

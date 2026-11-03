@@ -30,9 +30,31 @@ export function contentSize(windowAspect: number, screenHeight: number): { width
   return { width: Math.round(height * windowAspect), height };
 }
 
+/**
+ * Projektorns bild måste täcka hela fönstret. Kastförhållandet gäller projektorns långsida,
+ * som är vågrät när projektorn står och lodrät när den ligger på sidan.
+ */
+function longSideCm(windowWidthCm: number, windowHeightCm: number, onSide: boolean, nativeAspect: number): number {
+  return onSide
+    ? Math.max(windowHeightCm, windowWidthCm * nativeAspect)
+    : Math.max(windowWidthCm, windowHeightCm * nativeAspect);
+}
+
 /** Avstånd från projektor till duk, med Webhallen-projektorns kastförhållande 1,2. */
-export function projectorDistanceCm(windowHeightCm: number, throwRatio = 1.2, screenAspect = SCREEN_ASPECT_DEFAULT): number {
-  return Math.round(windowHeightCm * screenAspect * throwRatio);
+export function projectorDistanceCm(
+  windowWidthCm: number,
+  windowHeightCm: number,
+  onSide = false,
+  throwRatio = 1.2,
+  nativeAspect = SCREEN_ASPECT_DEFAULT,
+): number {
+  return Math.round(longSideCm(windowWidthCm, windowHeightCm, onSide, nativeAspect) * throwRatio);
+}
+
+/** Andel av projektorns ljus som hamnar på fönstret. Resten lyser på svart runt fönstret. */
+export function lightOnWindow(windowWidthCm: number, windowHeightCm: number, onSide = false, nativeAspect = SCREEN_ASPECT_DEFAULT): number {
+  const long = longSideCm(windowWidthCm, windowHeightCm, onSide, nativeAspect);
+  return (windowWidthCm * windowHeightCm) / (long * (long / nativeAspect));
 }
 
 export function clamp(value: number, min: number, max: number): number {

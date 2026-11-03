@@ -1,6 +1,6 @@
-import { defaultCorners, projectorDistanceCm } from '../../shared/geometry';
+import { defaultCorners, lightOnWindow, projectorDistanceCm } from '../../shared/geometry';
 import type { Strings } from '../../shared/i18n';
-import type { CameraFrame, CameraStatus, MaskShape, ShowSettings, WindowProfile } from '../../shared/types';
+import type { CameraFrame, CameraStatus, MaskShape, Rotation, ShowSettings, WindowProfile } from '../../shared/types';
 import { CameraStep } from './CameraStep';
 import { EveningStep } from './EveningStep';
 import { CornerEditor } from './CornerEditor';
@@ -37,6 +37,27 @@ export function SetupView({
     { value: 'arch', label: t.maskArch },
   ];
 
+  const aspect = profile.windowWidthCm / profile.windowHeightCm;
+  const onSide = profile.rotation !== 0;
+  const portrait = profile.windowHeightCm > profile.windowWidthCm;
+  const lightPct = Math.round(lightOnWindow(profile.windowWidthCm, profile.windowHeightCm, onSide) * 100);
+  // Projektorns egen bild är alltid liggande. Scenen räknar med den vriden när projektorn ligger på sidan.
+  const physicalAspect = onSide ? 1 / screenAspect : screenAspect;
+
+  /** Nya mått. Ändras formen mycket, till exempel bredd och höjd i fel ordning, börjar hörnen om. */
+  const setSize = (patch: { windowWidthCm?: number; windowHeightCm?: number }) => {
+    const w = patch.windowWidthCm ?? profile.windowWidthCm;
+    const h = patch.windowHeightCm ?? profile.windowHeightCm;
+    const changed = Math.abs(w / h / aspect - 1) > 0.2;
+    onProfile(changed ? { ...patch, corners: defaultCorners(w / h, screenAspect) } : patch);
+  };
+
+  /** Ny placering av projektorn. Hörnen börjar om i den nya riktningen. */
+  const setRotation = (rotation: Rotation) => {
+    const logical = rotation === 0 ? physicalAspect : 1 / physicalAspect;
+    onProfile({ rotation, corners: defaultCorners(aspect, logical) });
+  };
+
   return (
     <ol className="space-y-4">
       <Step number={1} title={t.stepWindow} hint={t.stepWindowHint}>
@@ -45,16 +66,50 @@ export function SetupView({
             label={t.width}
             unit={t.cm}
             value={profile.windowWidthCm}
-            onChange={(windowWidthCm) => onProfile({ windowWidthCm })}
+            onChange={(windowWidthCm) => setSize({ windowWidthCm })}
           />
           <NumberField
             label={t.height}
             unit={t.cm}
             value={profile.windowHeightCm}
-            onChange={(windowHeightCm) => onProfile({ windowHeightCm })}
+            onChange={(windowHeightCm) => setSize({ windowHeightCm })}
           />
         </div>
-        <p className="mt-3 text-[15px] text-frost/85">{t.projectorDistance(projectorDistanceCm(profile.windowHeightCm))}</p>
+        <fieldset className="mt-4">
+          <legend className="text-sm text-mist">{t.projectorMount}</legend>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <div className="inline-flex rounded-xl border border-night-600 p-0.5">
+              {([0, 90] as Rotation[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={value === 0 ? !onSide : onSide}
+                  onClick={() => (value === 0 ? onSide && setRotation(0) : !onSide && setRotation(90))}
+                  className={[
+                    'rounded-[10px] px-3.5 py-1.5 text-sm transition-colors',
+                    (value === 0 ? !onSide : onSide) ? 'bg-lantern/15 text-lantern-soft' : 'text-frost hover:text-lantern-soft',
+                  ].join(' ')}
+                >
+                  {value === 0 ? t.projectorUpright : t.projectorOnSide}
+                </button>
+              ))}
+            </div>
+            {onSide && (
+              <button
+                type="button"
+                onClick={() => setRotation(profile.rotation === 90 ? 270 : 90)}
+                className="rounded-xl border border-night-600 px-3.5 py-1.5 text-sm font-medium text-frost hover:border-mist"
+              >
+                {t.projectorTurn}
+              </button>
+            )}
+          </div>
+        </fieldset>
+        <p className="mt-3 text-[15px] text-frost/85">
+          {t.projectorDistance(projectorDistanceCm(profile.windowWidthCm, profile.windowHeightCm, onSide))}{' '}
+          {t.projectorLight(lightPct)}
+        </p>
+        {portrait && !onSide && <p className="mt-2 max-w-[62ch] text-[15px] leading-snug text-lantern-soft">{t.projectorSideTip}</p>}
       </Step>
 
       <Step number={2} title={t.stepCorners} hint={t.stepCornersHint}>

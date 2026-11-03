@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval';
 import { defaultCorners } from './geometry';
-import type { CameraSettings, Corners, Locale, MaskShape, ScheduleSettings, Sensitivity, ShowSettings, WindowProfile, Zone } from './types';
+import type { CameraSettings, Corners, Locale, MaskShape, Rotation, ScheduleSettings, Sensitivity, ShowSettings, WindowProfile, Zone } from './types';
 
 const STORAGE_KEY = 'fonstershowen:settings';
 
@@ -16,6 +16,7 @@ export function createProfile(partial: Partial<WindowProfile> = {}): WindowProfi
     mirror: partial.mirror ?? true,
     mask: partial.mask ?? 'rect',
     maskInsetPct: partial.maskInsetPct ?? 0,
+    rotation: partial.rotation ?? 0,
   };
 }
 
@@ -87,6 +88,7 @@ function normalizeProfile(value: unknown): WindowProfile | null {
     mirror: typeof v.mirror === 'boolean' ? v.mirror : base.mirror,
     mask: MASKS.includes(v.mask as MaskShape) ? (v.mask as MaskShape) : base.mask,
     maskInsetPct: num(v.maskInsetPct, 0, 0, 25),
+    rotation: ([0, 90, 270] as Rotation[]).includes(v.rotation as Rotation) ? (v.rotation as Rotation) : 0,
   };
 }
 

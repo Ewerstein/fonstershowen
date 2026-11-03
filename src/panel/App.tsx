@@ -26,7 +26,12 @@ export function App() {
   const t = strings(settings.locale);
   const profile = activeProfile(settings);
   const aspect = profile.windowWidthCm / profile.windowHeightCm;
-  const screenAspect = status ? status.screen.width / status.screen.height : SCREEN_ASPECT_DEFAULT;
+  // Scenen rapporterar sin skärm som den står på fönstret, alltså vriden när projektorn ligger på sidan.
+  const screenAspect = status
+    ? status.screen.width / status.screen.height
+    : profile.rotation === 0
+      ? SCREEN_ASPECT_DEFAULT
+      : 1 / SCREEN_ASPECT_DEFAULT;
 
   const handleOpen = async () => setOpenResult(await openStage());
   const wake = status?.blackout && settings.schedule.enabled ? scheduleState(new Date(), settings.schedule).next : null;
