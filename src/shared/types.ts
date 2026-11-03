@@ -103,6 +103,10 @@ export interface CameraStatus {
   people: number;
   present: boolean;
   lastGesture?: { type: 'wave' | 'bothHands'; at: number };
+  /** Medelljuset i den bevakade ytan, 0 till 255. */
+  light?: number;
+  /** Hur mycket bilden ljusas upp innan analysen. 1 betyder inte alls. */
+  gain?: number;
 }
 
 /** Liten förhandsbild från kameran med kroppspunkter, för att rikta kameran från panelen. */

@@ -22,6 +22,14 @@ const RETRY_MS = 10000;
 
 const CONFIDENCE: Record<Sensitivity, number> = { low: 0.6, normal: 0.5, high: 0.35 };
 
+/**
+ * Mörkerläge: bilden ljusas upp innan analysen när den är mörk. På en mörklagd gatuvideo
+ * fördubblade det antalet hittade personer. Ljuset mäts två gånger i sekunden i den bevakade ytan.
+ */
+const LIGHT_TARGET = 110;
+const MAX_GAIN = 4;
+const LIGHT_INTERVAL_MS = 500;
+
 class ModelError extends Error {}
 
 function classify(error: unknown): CameraError {
@@ -46,6 +54,9 @@ export class CameraSensor {
   private readonly video = document.createElement('video');
   private readonly crop = document.createElement('canvas');
   private readonly preview = document.createElement('canvas');
+  private readonly probe = document.createElement('canvas');
+  private gain = 1;
+  private lastLightAt = 0;
   private landmarker: PoseLandmarker | null = null;
   private landmarkerLoad: Promise<PoseLandmarker> | null = null;
   private landmarkerConfidence = 0;
@@ -234,15 +245,25 @@ export class CameraSensor {
     const vh = video.videoHeight;
     const zone = settings.zone;
     const full = isFullZone(zone);
+    if (now - this.lastLightAt >= LIGHT_INTERVAL_MS) {
+      this.lastLightAt = now;
+      this.measureLight(zone, vw, vh);
+    }
+    const boost = this.gain > 1.2;
     let source: HTMLVideoElement | HTMLCanvasElement = video;
-    if (!full) {
+    if (!full || boost) {
       const cw = Math.max(16, Math.round(zone.w * vw));
       const ch = Math.max(16, Math.round(zone.h * vh));
       if (this.crop.width !== cw || this.crop.height !== ch) {
         this.crop.width = cw;
         this.crop.height = ch;
       }
-      this.crop.getContext('2d')?.drawImage(video, zone.x * vw, zone.y * vh, cw, ch, 0, 0, cw, ch);
+      const ctx = this.crop.getContext('2d');
+      if (ctx) {
+        ctx.filter = this.filter();
+        ctx.drawImage(video, zone.x * vw, zone.y * vh, cw, ch, 0, 0, cw, ch);
+        ctx.filter = 'none';
+      }
       source = this.crop;
     }
 
@@ -297,7 +318,10 @@ export class CameraSensor {
     }
     const ctx = this.preview.getContext('2d');
     if (!ctx) return;
+    // Förhandsbilden visar det modellen ser, alltså uppljusad när det är mörkt.
+    ctx.filter = this.filter();
     ctx.drawImage(this.video, 0, 0, width, height);
+    ctx.filter = 'none';
     const round = (v: number) => Math.round(v * 1000) / 1000;
     this.handlers.onFrame({
       image: this.preview.toDataURL('image/jpeg', 0.6),
@@ -308,6 +332,29 @@ export class CameraSensor {
       ),
       at: Date.now(),
     });
+  }
+
+  private filter(): string {
+    return this.gain > 1.2 ? `brightness(${this.gain.toFixed(2)}) contrast(1.15)` : 'none';
+  }
+
+  /** Medelljuset i den bevakade ytan, 0 till 255, och hur mycket bilden ska ljusas upp. */
+  private measureLight(zone: CameraSettings['zone'], vw: number, vh: number): void {
+    this.probe.width = 64;
+    this.probe.height = 36;
+    const ctx = this.probe.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    ctx.drawImage(this.video, zone.x * vw, zone.y * vh, zone.w * vw, zone.h * vh, 0, 0, 64, 36);
+    const data = ctx.getImageData(0, 0, 64, 36).data;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    const mean = sum / (data.length / 4);
+    const target = Math.min(MAX_GAIN, Math.max(1, LIGHT_TARGET / Math.max(mean, 1)));
+    // Mjuk ändring, så att bilden inte pumpar när en bil kör förbi med strålkastarna på.
+    this.gain += (target - this.gain) * 0.4;
+    const light = Math.round(mean);
+    const gain = Math.round(this.gain * 10) / 10;
+    if (light !== this.status.light || gain !== this.status.gain) this.status = { ...this.status, light, gain };
   }
 
   private fail(generation: number, error: CameraError, detail: string): void {

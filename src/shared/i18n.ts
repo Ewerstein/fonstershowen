@@ -80,6 +80,8 @@ const sv = {
   cameraGesture: (type: 'wave' | 'bothHands', seconds: number) =>
     `${type === 'wave' ? 'Vinkning' : 'Båda händerna upp'} för ${seconds} s sedan`,
   cameraFps: 'analyser/s',
+  cameraBoosted: 'mörk bild, ljusas upp',
+  cameraTooDark: 'Det är för mörkt för kameran, även med uppljusning. Tänd en lampa där folk står, till exempel vid entrén eller staketet.',
   cameraSlow: 'Datorn hinner analysera för få bilder per sekund. Vinkningar kan missas. Stäng andra program och låt datorn vara inkopplad i laddaren.',
   cameraPrivacy: 'Bilden stannar i datorn. Inget spelas in eller skickas. Kroppsmodellen hämtas från Google första gången kameran startar.',
   exportSettings: 'Spara inställningar som fil',
@@ -214,6 +216,8 @@ const en: Strings = {
   cameraPeople: (n: number) => (n === 0 ? 'Sees nobody' : n === 1 ? 'Sees 1 person' : `Sees ${n} people`),
   cameraGesture: (type: 'wave' | 'bothHands', seconds: number) => `${type === 'wave' ? 'Wave' : 'Both hands up'} ${seconds} s ago`,
   cameraFps: 'checks/s',
+  cameraBoosted: 'dark picture, brightened',
+  cameraTooDark: 'It is too dark for the camera, even when brightened. Add a light where people stand, for example by the entrance or the fence.',
   cameraSlow: 'The computer analyses too few pictures per second. Waves may be missed. Close other apps and keep the computer plugged in.',
   cameraPrivacy: 'The picture stays on this computer. Nothing is recorded or sent. The body model is downloaded from Google the first time the camera starts.',
   exportSettings: 'Save settings to a file',
