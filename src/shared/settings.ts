@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval';
 import { defaultCorners } from './geometry';
-import type { CameraSettings, Corners, Locale, MaskShape, Sensitivity, ShowSettings, WindowProfile, Zone } from './types';
+import type { CameraSettings, Corners, Locale, MaskShape, Rotation, ScheduleSettings, Sensitivity, ShowSettings, WindowProfile, Zone } from './types';
 
 const STORAGE_KEY = 'fonstershowen:settings';
 
@@ -16,6 +16,7 @@ export function createProfile(partial: Partial<WindowProfile> = {}): WindowProfi
     mirror: partial.mirror ?? true,
     mask: partial.mask ?? 'rect',
     maskInsetPct: partial.maskInsetPct ?? 0,
+    rotation: partial.rotation ?? 0,
   };
 }
 
@@ -23,6 +24,10 @@ export const FULL_ZONE: Zone = { x: 0, y: 0, w: 1, h: 1 };
 
 export function defaultCamera(): CameraSettings {
   return { enabled: false, deviceId: '', flip: false, sensitivity: 'normal', zone: { ...FULL_ZONE } };
+}
+
+export function defaultSchedule(): ScheduleSettings {
+  return { enabled: false, startMode: 'time', startTime: '15:30', sunsetOffsetMin: 0, endTime: '22:00', location: null };
 }
 
 export function isFullZone(zone: Zone): boolean {
@@ -41,6 +46,7 @@ export function defaultSettings(): ShowSettings {
     activeProfileId: profile.id,
     profiles: [profile],
     camera: defaultCamera(),
+    schedule: defaultSchedule(),
   };
 }
 
@@ -82,6 +88,7 @@ function normalizeProfile(value: unknown): WindowProfile | null {
     mirror: typeof v.mirror === 'boolean' ? v.mirror : base.mirror,
     mask: MASKS.includes(v.mask as MaskShape) ? (v.mask as MaskShape) : base.mask,
     maskInsetPct: num(v.maskInsetPct, 0, 0, 25),
+    rotation: ([0, 90, 270] as Rotation[]).includes(v.rotation as Rotation) ? (v.rotation as Rotation) : 0,
   };
 }
 
@@ -106,6 +113,27 @@ function normalizeCamera(value: unknown): CameraSettings {
   };
 }
 
+const TIME_PATTERN = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
+function normalizeSchedule(value: unknown): ScheduleSettings {
+  const fallback = defaultSchedule();
+  if (!value || typeof value !== 'object') return fallback;
+  const v = value as Partial<ScheduleSettings>;
+  const loc = v.location as { lat?: unknown; lon?: unknown } | null | undefined;
+  const location =
+    loc && typeof loc.lat === 'number' && typeof loc.lon === 'number' && Math.abs(loc.lat) <= 90 && Math.abs(loc.lon) <= 180
+      ? { lat: loc.lat, lon: loc.lon }
+      : null;
+  return {
+    enabled: typeof v.enabled === 'boolean' ? v.enabled : false,
+    startMode: v.startMode === 'sunset' ? 'sunset' : 'time',
+    startTime: typeof v.startTime === 'string' && TIME_PATTERN.test(v.startTime) ? v.startTime : fallback.startTime,
+    sunsetOffsetMin: Math.round(num(v.sunsetOffsetMin, 0, -120, 120)),
+    endTime: typeof v.endTime === 'string' && TIME_PATTERN.test(v.endTime) ? v.endTime : fallback.endTime,
+    location,
+  };
+}
+
 /** Tar emot okänd data (från lagring eller en importerad fil) och returnerar giltiga inställningar. */
 export function normalizeSettings(value: unknown): ShowSettings {
   const fallback = defaultSettings();
@@ -126,6 +154,7 @@ export function normalizeSettings(value: unknown): ShowSettings {
     activeProfileId,
     profiles,
     camera: normalizeCamera(v.camera),
+    schedule: normalizeSchedule(v.schedule),
   };
 }
 

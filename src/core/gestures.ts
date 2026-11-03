@@ -5,8 +5,8 @@ import type { Sensitivity, ShowEvent } from '../shared/types';
  * var personen står, vinkning och båda händerna i luften. Ren logik utan webbläsare,
  * så varje regel går att testa med påhittade rörelser.
  *
- * Punkterna följer MediaPipe Pose (33 punkter), normaliserade 0..1 mot hela kamerabilden
- * som kameran ser den, alltså inte spegelvänd.
+ * Punkterna följer MediaPipe Pose (33 punkter), normaliserade 0..1 mot den bevakade ytan
+ * som kameran ser den, alltså inte spegelvänd. Utan ruta är ytan hela bilden.
  */
 
 export type { Sensitivity };

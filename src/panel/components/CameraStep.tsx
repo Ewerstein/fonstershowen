@@ -151,6 +151,9 @@ function CameraStatusLine({ t, enabled, status }: { t: Strings; enabled: boolean
   if (status.state !== 'running') return <p className="text-sm text-mist">{t.cameraState[status.state]}</p>;
 
   const parts = [t.cameraPeople(status.people), `${status.fps} ${t.cameraFps}`];
+  if ((status.gain ?? 1) > 1.2) parts.push(t.cameraBoosted);
+  // Under ungefär 10 av 255 finns för lite ljus att ljusa upp. Då är bilden mest brus.
+  const tooDark = status.light !== undefined && status.light >= 0 && status.light < 10;
   if (status.lastGesture && now - status.lastGesture.at < 60000) {
     parts.push(t.cameraGesture(status.lastGesture.type, Math.max(0, Math.round((now - status.lastGesture.at) / 1000))));
   }
@@ -163,6 +166,7 @@ function CameraStatusLine({ t, enabled, status }: { t: Strings; enabled: boolean
         {parts.join(' · ')}
       </p>
       {slow && <p className="mt-1 max-w-[52ch] text-sm leading-snug text-lantern-soft">{t.cameraSlow}</p>}
+      {tooDark && <p className="mt-1 max-w-[52ch] text-sm leading-snug text-lantern-soft">{t.cameraTooDark}</p>}
     </div>
   );
 }

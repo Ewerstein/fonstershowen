@@ -5,13 +5,19 @@ interface WindowStatusProps {
   t: Strings;
   status: StageStatus | null;
   aspect: number;
+  /** När tomten vaknar, om fönstret är släckt enligt schemat. */
+  wakeTime: { time: string; tomorrow: boolean } | null;
 }
 
 /** Ett litet upplyst fönster med tomtens siluett. Visar vad scenen gör just nu. */
-export function WindowStatus({ t, status, aspect }: WindowStatusProps) {
+export function WindowStatus({ t, status, aspect, wakeTime }: WindowStatusProps) {
   const state: DirectorState | null = status?.state ?? null;
   const lit = state !== null && state !== 'sleep';
-  const [title, body] = state ? t.states[state] : [t.closedTitle, t.closedBody];
+  const [title, body] = status?.blackout
+    ? [t.blackoutTitle, t.blackoutBody(wakeTime?.time ?? '', wakeTime?.tomorrow ?? false)]
+    : state
+      ? t.states[state]
+      : [t.closedTitle, t.closedBody];
 
   return (
     <section aria-live="polite" className="rounded-[22px] bg-night-700 p-3">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyHomography, computeHomography, toCssMatrix3d } from './homography';
-import { defaultCorners, projectorDistanceCm } from './geometry';
+import { defaultCorners, lightOnWindow, projectorDistanceCm } from './geometry';
 
 const rect = [
   { x: 0, y: 0 },
@@ -52,6 +52,13 @@ describe('fönstrets geometri', () => {
   });
 
   it('räknar projektoravståndet för 78 cm höjd till ungefär 1,7 m', () => {
-    expect(projectorDistanceCm(78)).toBe(166);
+    expect(projectorDistanceCm(125, 78)).toBe(166);
+  });
+
+  it('räknar avstånd och ljus för ett fönster på högkant, med projektorn stående och liggande', () => {
+    expect(projectorDistanceCm(78, 125)).toBe(267);
+    expect(projectorDistanceCm(78, 125, true)).toBe(166);
+    expect(lightOnWindow(78, 125)).toBeCloseTo(0.35, 2);
+    expect(lightOnWindow(78, 125, true)).toBeCloseTo(0.9, 2);
   });
 });

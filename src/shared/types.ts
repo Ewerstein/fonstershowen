@@ -28,7 +28,11 @@ export interface WindowProfile {
   mask: MaskShape;
   /** Hur mycket masken dras in från kanten, i procent av bildens kortaste sida. */
   maskInsetPct: number;
+  /** Projektorn ligger på sidan: bilden vrids 90 eller 270 grader så att den står rätt på fönstret. */
+  rotation: Rotation;
 }
+
+export type Rotation = 0 | 90 | 270;
 
 export type Locale = 'sv' | 'en';
 
@@ -40,6 +44,18 @@ export interface Zone {
   y: number;
   w: number;
   h: number;
+}
+
+export interface ScheduleSettings {
+  enabled: boolean;
+  startMode: 'time' | 'sunset';
+  /** Starttid 'HH:MM' när startMode är 'time', och reserv när skymning inte går att räkna ut. */
+  startTime: string;
+  /** Minuter före (negativt) eller efter solnedgången. */
+  sunsetOffsetMin: number;
+  endTime: string;
+  /** Avrundad plats för solnedgången. Null tills användaren valt plats. */
+  location: { lat: number; lon: number } | null;
 }
 
 export interface CameraSettings {
@@ -64,6 +80,7 @@ export interface ShowSettings {
   activeProfileId: string;
   profiles: WindowProfile[];
   camera: CameraSettings;
+  schedule: ScheduleSettings;
 }
 
 /** Allt som kan hända och som regissören reagerar på. Sensorer skickar bara sådana här. */
@@ -90,6 +107,10 @@ export interface CameraStatus {
   people: number;
   present: boolean;
   lastGesture?: { type: 'wave' | 'bothHands'; at: number };
+  /** Medelljuset i den bevakade ytan, 0 till 255. */
+  light?: number;
+  /** Hur mycket bilden ljusas upp innan analysen. 1 betyder inte alls. */
+  gain?: number;
 }
 
 /** Liten förhandsbild från kameran med kroppspunkter, för att rikta kameran från panelen. */
@@ -113,6 +134,8 @@ export interface StageStatus {
   styleId: string;
   styleError?: string;
   camera: CameraStatus;
+  /** Fönstret är släckt för natten enligt schemat. */
+  blackout: boolean;
   at: number;
 }
 

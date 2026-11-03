@@ -1,6 +1,7 @@
 import type { PoseLandmarker } from '@mediapipe/tasks-vision';
 import { GestureTracker, type BodyPose } from '../core/gestures';
 import { PREVIEW_POINTS } from '../shared/cameraPoints';
+import { POSE_MODEL_URLS } from '../shared/models';
 import { isFullZone } from '../shared/settings';
 import type { CameraError, CameraFrame, CameraSettings, CameraStatus, Sensitivity, ShowEvent } from '../shared/types';
 
@@ -10,14 +11,6 @@ import type { CameraError, CameraFrame, CameraSettings, CameraStatus, Sensitivit
  * och bara medan panelen ber om den.
  */
 
-/**
- * Kroppsmodellen hämtas från Google, låst version först och senaste som reserv.
- * VITE_POSE_MODEL_URL byter till en egen fil, till exempel vid test.
- */
-const MODEL_ROOT = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16';
-const MODEL_URLS: string[] = import.meta.env.VITE_POSE_MODEL_URL
-  ? [import.meta.env.VITE_POSE_MODEL_URL]
-  : [`${MODEL_ROOT}/1/pose_landmarker_full.task`, `${MODEL_ROOT}/latest/pose_landmarker_full.task`];
 const WASM_BASE = `${import.meta.env.BASE_URL}mediapipe`;
 
 /** Mål för analysen: lika många bilder som kameran ger, upp till 30 per sekund. */
@@ -28,6 +21,14 @@ const STALL_MS = 5000;
 const RETRY_MS = 10000;
 
 const CONFIDENCE: Record<Sensitivity, number> = { low: 0.6, normal: 0.5, high: 0.35 };
+
+/**
+ * Mörkerläge: bilden ljusas upp innan analysen när den är mörk. På en mörklagd gatuvideo
+ * fördubblade det antalet hittade personer. Ljuset mäts två gånger i sekunden i den bevakade ytan.
+ */
+const LIGHT_TARGET = 110;
+const MAX_GAIN = 4;
+const LIGHT_INTERVAL_MS = 500;
 
 class ModelError extends Error {}
 
@@ -53,6 +54,9 @@ export class CameraSensor {
   private readonly video = document.createElement('video');
   private readonly crop = document.createElement('canvas');
   private readonly preview = document.createElement('canvas');
+  private readonly probe = document.createElement('canvas');
+  private gain = 1;
+  private lastLightAt = 0;
   private landmarker: PoseLandmarker | null = null;
   private landmarkerLoad: Promise<PoseLandmarker> | null = null;
   private landmarkerConfidence = 0;
@@ -68,6 +72,7 @@ export class CameraSensor {
   private detections = 0;
   private fpsWindowStart = 0;
   private lastGestureAt = -1;
+  private paused = false;
 
   constructor(private readonly handlers: Handlers) {
     this.video.muted = true;
@@ -80,12 +85,23 @@ export class CameraSensor {
     this.tracker.setOptions({ sensitivity: next.sensitivity, flip: next.flip });
     if (this.landmarker && this.landmarkerConfidence !== CONFIDENCE[next.sensitivity]) void this.applyConfidence(this.landmarker);
 
-    if (!next.enabled) {
+    if (!next.enabled || this.paused) {
       if (this.status.state !== 'off') this.stop();
       return;
     }
-    const cameraChanged = !previous || !previous.enabled || previous.deviceId !== next.deviceId;
+    const cameraChanged = !previous || !previous.enabled || previous.deviceId !== next.deviceId || this.status.state === 'off';
     if (cameraChanged || (this.status.state === 'error' && JSON.stringify(previous) !== JSON.stringify(next))) {
+      void this.start();
+    }
+  }
+
+  /** Vilar kameran medan fönstret är släckt för natten. Lampan på kameran slocknar också. */
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (paused) {
+      if (this.status.state !== 'off') this.stop();
+    } else if (this.settings?.enabled) {
       void this.start();
     }
   }
@@ -165,7 +181,7 @@ export class CameraSensor {
         const delegates: ('GPU' | 'CPU')[] = import.meta.env.VITE_POSE_DELEGATE === 'CPU' ? ['CPU'] : ['GPU', 'CPU'];
         let landmarker: PoseLandmarker | null = null;
         let lastError: unknown = null;
-        for (const url of MODEL_URLS) {
+        for (const url of POSE_MODEL_URLS) {
           for (const delegate of delegates) {
             try {
               landmarker = await create(url, delegate);
@@ -229,15 +245,25 @@ export class CameraSensor {
     const vh = video.videoHeight;
     const zone = settings.zone;
     const full = isFullZone(zone);
+    if (now - this.lastLightAt >= LIGHT_INTERVAL_MS) {
+      this.lastLightAt = now;
+      this.measureLight(zone, vw, vh);
+    }
+    const boost = this.gain > 1.2;
     let source: HTMLVideoElement | HTMLCanvasElement = video;
-    if (!full) {
+    if (!full || boost) {
       const cw = Math.max(16, Math.round(zone.w * vw));
       const ch = Math.max(16, Math.round(zone.h * vh));
       if (this.crop.width !== cw || this.crop.height !== ch) {
         this.crop.width = cw;
         this.crop.height = ch;
       }
-      this.crop.getContext('2d')?.drawImage(video, zone.x * vw, zone.y * vh, cw, ch, 0, 0, cw, ch);
+      const ctx = this.crop.getContext('2d');
+      if (ctx) {
+        ctx.filter = this.filter();
+        ctx.drawImage(video, zone.x * vw, zone.y * vh, cw, ch, 0, 0, cw, ch);
+        ctx.filter = 'none';
+      }
       source = this.crop;
     }
 
@@ -248,15 +274,14 @@ export class CameraSensor {
       this.fail(generation, 'model', error instanceof Error ? error.message : String(error));
       return;
     }
-    this.poses = landmarks.map((points) =>
-      points.map((p) => ({
-        x: full ? p.x : zone.x + p.x * zone.w,
-        y: full ? p.y : zone.y + p.y * zone.h,
-        visibility: p.visibility ?? 0,
-      })),
-    );
+    // Modellen svarar i den bevakade ytans mått. Gesterna räknas där, så att en person långt bort
+    // räknas som nära när rutan är dragen över gatan, och blicken följer gatan från kant till kant.
+    const local: BodyPose[] = landmarks.map((points) => points.map((p) => ({ x: p.x, y: p.y, visibility: p.visibility ?? 0 })));
+    // Förhandsbilden visar hela bilden, så punkterna räknas om till den.
+    this.poses = full ? local : local.map((pose) => pose.map((p) => ({ ...p, x: zone.x + p.x * zone.w, y: zone.y + p.y * zone.h })));
 
-    const events = this.tracker.update(now, this.poses, vw / vh);
+    const aspect = full ? vw / vh : (zone.w * vw) / (zone.h * vh);
+    const events = this.tracker.update(now, local, aspect);
     if (events.length > 0) this.handlers.onEvents(events);
 
     this.detections++;
@@ -293,7 +318,10 @@ export class CameraSensor {
     }
     const ctx = this.preview.getContext('2d');
     if (!ctx) return;
+    // Förhandsbilden visar det modellen ser, alltså uppljusad när det är mörkt.
+    ctx.filter = this.filter();
     ctx.drawImage(this.video, 0, 0, width, height);
+    ctx.filter = 'none';
     const round = (v: number) => Math.round(v * 1000) / 1000;
     this.handlers.onFrame({
       image: this.preview.toDataURL('image/jpeg', 0.6),
@@ -304,6 +332,29 @@ export class CameraSensor {
       ),
       at: Date.now(),
     });
+  }
+
+  private filter(): string {
+    return this.gain > 1.2 ? `brightness(${this.gain.toFixed(2)}) contrast(1.15)` : 'none';
+  }
+
+  /** Medelljuset i den bevakade ytan, 0 till 255, och hur mycket bilden ska ljusas upp. */
+  private measureLight(zone: CameraSettings['zone'], vw: number, vh: number): void {
+    this.probe.width = 64;
+    this.probe.height = 36;
+    const ctx = this.probe.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    ctx.drawImage(this.video, zone.x * vw, zone.y * vh, zone.w * vw, zone.h * vh, 0, 0, 64, 36);
+    const data = ctx.getImageData(0, 0, 64, 36).data;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    const mean = sum / (data.length / 4);
+    const target = Math.min(MAX_GAIN, Math.max(1, LIGHT_TARGET / Math.max(mean, 1)));
+    // Mjuk ändring, så att bilden inte pumpar när en bil kör förbi med strålkastarna på.
+    this.gain += (target - this.gain) * 0.4;
+    const light = Math.round(mean);
+    const gain = Math.round(this.gain * 10) / 10;
+    if (light !== this.status.light || gain !== this.status.gain) this.status = { ...this.status, light, gain };
   }
 
   private fail(generation: number, error: CameraError, detail: string): void {
