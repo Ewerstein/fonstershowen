@@ -28,19 +28,28 @@ describe('inställningar', () => {
 });
 
 describe('schema i inställningar', () => {
-  it('ger schemat standardvärden och rättar felaktiga tider och platser', () => {
-    const s = normalizeSettings({
+  it('flyttar ett äldre schema med ett pass och platsen till de nya fälten', () => {
+    const old = {
       ...defaultSettings(),
-      schedule: { enabled: true, startMode: 'sunset', startTime: '25:00', endTime: '23:30', sunsetOffsetMin: -500, location: { lat: 999, lon: 12 } },
-    });
+      schedule: { enabled: true, startMode: 'sunset', startTime: '25:00', endTime: '23:30', sunsetOffsetMin: -500, location: { lat: 56.67, lon: 12.86 } },
+    } as Record<string, unknown>;
+    delete old.location;
+    const s = normalizeSettings(old);
     expect(s.schedule.enabled).toBe(true);
-    expect(s.schedule.startMode).toBe('sunset');
-    expect(s.schedule.startTime).toBe('15:30');
-    expect(s.schedule.endTime).toBe('23:30');
-    expect(s.schedule.sunsetOffsetMin).toBe(-120);
-    expect(s.schedule.location).toBeNull();
-    const old = { ...defaultSettings() } as Record<string, unknown>;
-    delete old.schedule;
-    expect(normalizeSettings(old).schedule.enabled).toBe(false);
+    expect(s.schedule.slots).toHaveLength(1);
+    expect(s.schedule.slots[0].startMode).toBe('sunset');
+    expect(s.schedule.slots[0].startTime).toBe('15:30');
+    expect(s.schedule.slots[0].endTime).toBe('23:30');
+    expect(s.schedule.slots[0].sunsetOffsetMin).toBe(-120);
+    expect(s.location).toEqual({ lat: 56.67, lon: 12.86 });
+  });
+
+  it('tar högst fyra pass och ger omgivningen standardvärden', () => {
+    const slots = Array.from({ length: 6 }, () => ({ startTime: '10:00', endTime: '11:00' }));
+    const s = normalizeSettings({ ...defaultSettings(), schedule: { enabled: false, slots }, scene: { text: 'blink', weather: 'live' } });
+    expect(s.schedule.slots).toHaveLength(4);
+    expect(s.scene.text).toBe('none');
+    expect(s.scene.weather).toBe('live');
+    expect(s.scene.ground).toBe(false);
   });
 });

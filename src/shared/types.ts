@@ -46,16 +46,37 @@ export interface Zone {
   h: number;
 }
 
-export interface ScheduleSettings {
-  enabled: boolean;
+/** Ett pass i schemat, till exempel en morgon före soluppgången och en kväll från skymningen. */
+export interface ScheduleSlot {
   startMode: 'time' | 'sunset';
-  /** Starttid 'HH:MM' när startMode är 'time', och reserv när skymning inte går att räkna ut. */
+  /** Starttid 'HH:MM'. Används också som reserv när solnedgången inte går att räkna ut. */
   startTime: string;
   /** Minuter före (negativt) eller efter solnedgången. */
   sunsetOffsetMin: number;
+  endMode: 'time' | 'sunrise';
   endTime: string;
-  /** Avrundad plats för solnedgången. Null tills användaren valt plats. */
-  location: { lat: number; lon: number } | null;
+  /** Minuter före (negativt) eller efter soluppgången. */
+  sunriseOffsetMin: number;
+}
+
+export interface ScheduleSettings {
+  enabled: boolean;
+  slots: ScheduleSlot[];
+}
+
+/** Avrundad plats för sol och väder. Null tills användaren valt plats. */
+export type GeoLocation = { lat: number; lon: number } | null;
+
+export interface SceneSettings {
+  /** Text ovanför tomten. */
+  text: 'none' | 'countdown' | 'custom';
+  customText: string;
+  /** Lätt snöfall hela tiden, vädret just nu från SMHI, eller ingen nederbörd. */
+  weather: 'light' | 'live' | 'off';
+  /** Måne och stjärnor. Följer appen vädret syns de bara när det är klart. */
+  sky: boolean;
+  /** Snö på marken under tomten. */
+  ground: boolean;
 }
 
 export interface CameraSettings {
@@ -81,6 +102,8 @@ export interface ShowSettings {
   profiles: WindowProfile[];
   camera: CameraSettings;
   schedule: ScheduleSettings;
+  scene: SceneSettings;
+  location: GeoLocation;
 }
 
 /** Allt som kan hända och som regissören reagerar på. Sensorer skickar bara sådana här. */
@@ -136,6 +159,8 @@ export interface StageStatus {
   camera: CameraStatus;
   /** Fönstret är släckt för natten enligt schemat. */
   blackout: boolean;
+  /** Vädret från SMHI när appen följer vädret. */
+  weather?: { now: import('./weather').WeatherNow | null; fetchedAt: number; error?: string };
   at: number;
 }
 

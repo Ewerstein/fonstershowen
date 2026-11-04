@@ -1,6 +1,8 @@
 import './stage.css';
 import { Director } from '../core/director';
+import { christmasBanner } from '../core/countdown';
 import { scheduleState } from '../core/schedule';
+import { fetchWeather, sceneWeather, type WeatherNow } from '../shared/weather';
 import { createBus } from '../shared/bus';
 import { strings } from '../shared/i18n';
 import { activeProfile, loadSettings } from '../shared/settings';
@@ -20,6 +22,9 @@ const mirror = document.getElementById('mirror') as HTMLDivElement;
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
 const pattern = document.getElementById('pattern') as HTMLDivElement;
 const hint = document.getElementById('hint') as HTMLDivElement;
+const banner = document.getElementById('banner') as HTMLDivElement;
+const bannerMain = banner.querySelector('.main') as HTMLSpanElement;
+const bannerSub = banner.querySelector('.sub') as HTMLSpanElement;
 
 let settings: ShowSettings;
 const scene = new ShowScene(canvas);
@@ -51,7 +56,7 @@ function applySchedule(): void {
     updateBlackout();
     return;
   }
-  const on = scheduleState(new Date(), s).on;
+  const on = scheduleState(new Date(), s, settings.location).on;
   if (on === scheduleOn) return;
   const first = scheduleOn === null;
   scheduleOn = on;
@@ -63,6 +68,60 @@ function applySchedule(): void {
       if (blackout && !document.fullscreenElement) location.reload();
     }, 8000);
   }
+}
+
+// Omgivningen: text överst, himmel, snö på marken och väder.
+let liveWeather: { now: WeatherNow | null; fetchedAt: number; error?: string } | undefined;
+let weatherTimer = 0;
+let weatherKey = '';
+const WEATHER_INTERVAL_MS = 20 * 60_000;
+const WEATHER_MAX_AGE_MS = 3 * 60 * 60_000;
+
+function applyScene(): void {
+  if (!settings) return;
+  const s = settings.scene;
+  const text =
+    s.text === 'countdown'
+      ? christmasBanner(new Date(), settings.locale)
+      : s.text === 'custom' && s.customText.trim()
+        ? { main: s.customText.trim(), sub: '' }
+        : null;
+  banner.hidden = !text;
+  if (text) {
+    bannerMain.textContent = text.main;
+    bannerSub.textContent = text.sub;
+  }
+  scene.setTextSpace(!!text);
+  scene.setSky(s.sky);
+  scene.setGround(s.ground);
+  const fresh = liveWeather?.now && Date.now() - liveWeather.fetchedAt < WEATHER_MAX_AGE_MS ? liveWeather.now : null;
+  scene.setWeather(sceneWeather(s.weather, fresh));
+
+  // Vädret hämtas bara när det ska följas och platsen finns, och då var tjugonde minut.
+  const key = s.weather === 'live' && settings.location ? `${settings.location.lat},${settings.location.lon}` : '';
+  if (key !== weatherKey) {
+    weatherKey = key;
+    window.clearInterval(weatherTimer);
+    if (key) {
+      void refreshWeather();
+      weatherTimer = window.setInterval(() => void refreshWeather(), WEATHER_INTERVAL_MS);
+    } else {
+      liveWeather = undefined;
+    }
+  }
+}
+
+async function refreshWeather(): Promise<void> {
+  const loc = settings?.location;
+  if (!loc) return;
+  try {
+    liveWeather = { now: await fetchWeather(loc.lat, loc.lon), fetchedAt: Date.now() };
+  } catch (error) {
+    // Ett misslyckat försök behåller det senaste vädret. För gammalt väder ger lätt snöfall.
+    liveWeather = { now: liveWeather?.now ?? null, fetchedAt: liveWeather?.fetchedAt ?? 0, error: error instanceof Error ? error.message : String(error) };
+  }
+  applyScene();
+  sendStatus();
 }
 
 function updateBlackout(): void {
@@ -148,6 +207,7 @@ function applySettings(next: ShowSettings): void {
   void applyStyle(next.themeId, next.styleId);
   camera.configure(next.camera);
   applySchedule();
+  applyScene();
 }
 
 /**
@@ -183,6 +243,8 @@ function layout(): void {
   const l = computeLayout(profile, size.width, size.height);
   content.style.width = `${l.width}px`;
   content.style.height = `${l.height}px`;
+  content.style.setProperty('--banner-main', `${Math.round(Math.min(l.height * 0.075, l.width * 0.12))}px`);
+  content.style.setProperty('--banner-sub', `${Math.round(Math.min(l.height * 0.038, l.width * 0.06))}px`);
   content.style.transform = l.transform;
   mirror.classList.toggle('mirrored', l.mirror);
   mirror.style.clipPath = l.clipPath;
@@ -206,6 +268,7 @@ function sendStatus(): void {
     styleError,
     camera: camera.status,
     blackout,
+    weather: liveWeather,
     at: Date.now(),
   };
   bus.send({ kind: 'status', status });
@@ -309,6 +372,8 @@ async function boot(): Promise<void> {
   sendStatus();
   requestAnimationFrame(frame);
   window.setInterval(applySchedule, 15000);
+  // Nedräkningen byter dag vid midnatt.
+  window.setInterval(applyScene, 60_000);
   registerServiceWorker();
 }
 

@@ -11,7 +11,8 @@ Allt körs i webbläsaren på din dator. Inga konton, ingen server, inga kamerab
 3. Gå till **Installera**: skriv in fönstrets mått, dra de fyra hörnen tills testbilden ligger i fönstret och slå på spegling om projektorn lyser på duken inifrån.
 4. Gå till **Studio** och stäng av testbilden.
 5. Under **Installera**, steg 3: slå på kameran, välj kamera och dra en ruta över gatan i förhandsbilden.
-6. Under **Studio**, Schema: välj start vid klockslag eller i skymningen, och en tid för stopp.
+6. Under **Studio**, Schema: ett eller flera pass per dygn. Start vid klockslag eller i skymningen, stopp vid klockslag eller i gryningen.
+   Under **Omgivning** väljer du text ovanför tomten, väder, måne och stjärnor och snö på marken.
 7. Klicka på scenen och tryck Ctrl+Cmd+F. Macens egen helskärm ligger kvar om sidan laddas om.
 
 Tangenter på scenen: F helskärm, W vinka, C fira, L titta runt, S sova eller vakna.
@@ -33,6 +34,12 @@ Reglerna finns i `src/core/gestures.ts` och är testade med påhittade rörelser
 - Utanför schemat är fönstret svart, grafiken ritas inte och kameran vilar. När showen släcks laddas scenen om, så att nästa kväll börjar rent.
 - Scenen laddas om om grafiken tappas eller slutar rita, och kameran startar om om den hänger sig eller kopplas ur.
 - Steg 4 under **Installera** visar om allt finns sparat.
+
+## Omgivning och väder
+
+- Text ovanför tomten: nedräkning till julafton, som byter till julhälsning och nyårshälsning, eller egen text.
+- Väder: lätt snö hela tiden, inget, eller vädret just nu från SMHI:s öppna prognos (SNOW1gv1, CC BY 4.0). Vädret hämtas var tjugonde minut. Utan svar visas lätt snö.
+- Måne och stjärnor, och en snödriva under tomten. Följer appen vädret syns månen bara när det är klart.
 
 ## Utveckla
 

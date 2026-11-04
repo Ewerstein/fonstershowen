@@ -48,6 +48,41 @@ body.blackout #content {
   height: 100%;
 }
 
+/* Text ovanför tomten. Storleken sätts från bildens höjd i main.ts. */
+#banner {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 3.5%;
+  text-align: center;
+  pointer-events: none;
+  font-family: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  color: #fff3d6;
+  line-height: 1.05;
+}
+
+#banner[hidden] {
+  display: none;
+}
+
+#banner .main {
+  display: block;
+  font-weight: 800;
+  font-size: var(--banner-main, 48px);
+}
+
+#banner .sub {
+  display: block;
+  margin-top: 0.35em;
+  font-weight: 600;
+  color: #f4b860;
+  font-size: var(--banner-sub, 26px);
+}
+
+#banner .sub:empty {
+  display: none;
+}
+
 #pattern {
   position: absolute;
   inset: 0;

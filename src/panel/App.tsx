@@ -5,6 +5,7 @@ import { formatTime, scheduleState } from '../core/schedule';
 import { activeProfile } from '../shared/settings';
 import type { Locale } from '../shared/types';
 import { SettingsFile } from './components/SettingsFile';
+import { ScenePanel } from './components/ScenePanel';
 import { SchedulePanel } from './components/SchedulePanel';
 import { SetupView } from './components/SetupView';
 import { StylePicker } from './components/StylePicker';
@@ -34,7 +35,7 @@ export function App() {
       : 1 / SCREEN_ASPECT_DEFAULT;
 
   const handleOpen = async () => setOpenResult(await openStage());
-  const wake = status?.blackout && settings.schedule.enabled ? scheduleState(new Date(), settings.schedule).next : null;
+  const wake = status?.blackout && settings.schedule.enabled ? scheduleState(new Date(), settings.schedule, settings.location).next : null;
   const wakeTime = wake ? { time: formatTime(wake), tomorrow: wake.getDate() !== new Date().getDate() } : null;
 
   const openMessage =
@@ -97,6 +98,15 @@ export function App() {
                 status={status}
                 onChange={(styleId) => update((s) => ({ ...s, styleId }))}
               />
+              <ScenePanel
+                t={t}
+                locale={settings.locale}
+                scene={settings.scene}
+                location={settings.location}
+                weather={status?.weather}
+                onChange={(patch) => update((s) => ({ ...s, scene: { ...s.scene, ...patch } }))}
+                onLocation={(location) => update((s) => ({ ...s, location }))}
+              />
             </div>
             <div className="space-y-6">
               <section className="rounded-[22px] border border-night-700 bg-night-900 p-5 sm:p-6">
@@ -126,7 +136,9 @@ export function App() {
               <SchedulePanel
                 t={t}
                 schedule={settings.schedule}
+                location={settings.location}
                 onChange={(patch) => update((s) => ({ ...s, schedule: { ...s.schedule, ...patch } }))}
+                onLocation={(location) => update((s) => ({ ...s, location }))}
               />
             </div>
           </div>

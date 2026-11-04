@@ -1,6 +1,20 @@
 import { get, set } from 'idb-keyval';
 import { defaultCorners } from './geometry';
-import type { CameraSettings, Corners, Locale, MaskShape, Rotation, ScheduleSettings, Sensitivity, ShowSettings, WindowProfile, Zone } from './types';
+import type {
+  CameraSettings,
+  Corners,
+  GeoLocation,
+  Locale,
+  MaskShape,
+  Rotation,
+  SceneSettings,
+  ScheduleSettings,
+  ScheduleSlot,
+  Sensitivity,
+  ShowSettings,
+  WindowProfile,
+  Zone,
+} from './types';
 
 const STORAGE_KEY = 'fonstershowen:settings';
 
@@ -26,8 +40,18 @@ export function defaultCamera(): CameraSettings {
   return { enabled: false, deviceId: '', flip: false, sensitivity: 'normal', zone: { ...FULL_ZONE } };
 }
 
+export const MAX_SLOTS = 4;
+
+export function defaultSlot(): ScheduleSlot {
+  return { startMode: 'time', startTime: '15:30', sunsetOffsetMin: 0, endMode: 'time', endTime: '22:00', sunriseOffsetMin: 0 };
+}
+
 export function defaultSchedule(): ScheduleSettings {
-  return { enabled: false, startMode: 'time', startTime: '15:30', sunsetOffsetMin: 0, endTime: '22:00', location: null };
+  return { enabled: false, slots: [defaultSlot()] };
+}
+
+export function defaultScene(): SceneSettings {
+  return { text: 'none', customText: '', weather: 'light', sky: false, ground: false };
 }
 
 export function isFullZone(zone: Zone): boolean {
@@ -47,6 +71,8 @@ export function defaultSettings(): ShowSettings {
     profiles: [profile],
     camera: defaultCamera(),
     schedule: defaultSchedule(),
+    scene: defaultScene(),
+    location: null,
   };
 }
 
@@ -115,22 +141,49 @@ function normalizeCamera(value: unknown): CameraSettings {
 
 const TIME_PATTERN = /^([01]?\d|2[0-3]):[0-5]\d$/;
 
-function normalizeSchedule(value: unknown): ScheduleSettings {
-  const fallback = defaultSchedule();
+function normalizeLocation(value: unknown): GeoLocation {
+  const loc = value as { lat?: unknown; lon?: unknown } | null | undefined;
+  return loc && typeof loc.lat === 'number' && typeof loc.lon === 'number' && Math.abs(loc.lat) <= 90 && Math.abs(loc.lon) <= 180
+    ? { lat: loc.lat, lon: loc.lon }
+    : null;
+}
+
+function normalizeSlot(value: unknown): ScheduleSlot {
+  const fallback = defaultSlot();
   if (!value || typeof value !== 'object') return fallback;
-  const v = value as Partial<ScheduleSettings>;
-  const loc = v.location as { lat?: unknown; lon?: unknown } | null | undefined;
-  const location =
-    loc && typeof loc.lat === 'number' && typeof loc.lon === 'number' && Math.abs(loc.lat) <= 90 && Math.abs(loc.lon) <= 180
-      ? { lat: loc.lat, lon: loc.lon }
-      : null;
+  const v = value as Partial<ScheduleSlot>;
+  const time = (t: unknown, d: string) => (typeof t === 'string' && TIME_PATTERN.test(t) ? t : d);
+  return {
+    startMode: v.startMode === 'sunset' ? 'sunset' : 'time',
+    startTime: time(v.startTime, fallback.startTime),
+    sunsetOffsetMin: Math.round(num(v.sunsetOffsetMin, 0, -120, 120)),
+    endMode: v.endMode === 'sunrise' ? 'sunrise' : 'time',
+    endTime: time(v.endTime, fallback.endTime),
+    sunriseOffsetMin: Math.round(num(v.sunriseOffsetMin, 0, -120, 120)),
+  };
+}
+
+function normalizeSchedule(value: unknown): ScheduleSettings {
+  if (!value || typeof value !== 'object') return defaultSchedule();
+  const v = value as Partial<ScheduleSettings> & Partial<ScheduleSlot>;
+  // Äldre inställningar hade ett enda pass direkt i schemat.
+  const raw = Array.isArray(v.slots) && v.slots.length > 0 ? v.slots : [v];
   return {
     enabled: typeof v.enabled === 'boolean' ? v.enabled : false,
-    startMode: v.startMode === 'sunset' ? 'sunset' : 'time',
-    startTime: typeof v.startTime === 'string' && TIME_PATTERN.test(v.startTime) ? v.startTime : fallback.startTime,
-    sunsetOffsetMin: Math.round(num(v.sunsetOffsetMin, 0, -120, 120)),
-    endTime: typeof v.endTime === 'string' && TIME_PATTERN.test(v.endTime) ? v.endTime : fallback.endTime,
-    location,
+    slots: raw.slice(0, MAX_SLOTS).map(normalizeSlot),
+  };
+}
+
+function normalizeScene(value: unknown): SceneSettings {
+  const fallback = defaultScene();
+  if (!value || typeof value !== 'object') return fallback;
+  const v = value as Partial<SceneSettings>;
+  return {
+    text: v.text === 'countdown' || v.text === 'custom' ? v.text : 'none',
+    customText: typeof v.customText === 'string' ? v.customText.slice(0, 40) : '',
+    weather: v.weather === 'live' || v.weather === 'off' ? v.weather : 'light',
+    sky: typeof v.sky === 'boolean' ? v.sky : false,
+    ground: typeof v.ground === 'boolean' ? v.ground : false,
   };
 }
 
@@ -155,6 +208,9 @@ export function normalizeSettings(value: unknown): ShowSettings {
     profiles,
     camera: normalizeCamera(v.camera),
     schedule: normalizeSchedule(v.schedule),
+    scene: normalizeScene(v.scene),
+    // Platsen låg tidigare i schemat.
+    location: normalizeLocation(v.location ?? (v.schedule as { location?: unknown } | undefined)?.location),
   };
 }
 
