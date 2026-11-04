@@ -1,7 +1,7 @@
 import './stage.css';
 import { Director } from '../core/director';
 import { christmasBanner } from '../core/countdown';
-import { scheduleState } from '../core/schedule';
+import { formatTime, scheduleState } from '../core/schedule';
 import { fetchWeather, sceneWeather, type WeatherNow } from '../shared/weather';
 import { createBus } from '../shared/bus';
 import { strings } from '../shared/i18n';
@@ -124,13 +124,21 @@ async function refreshWeather(): Promise<void> {
   sendStatus();
 }
 
+let started = false;
+
 function updateBlackout(): void {
   const next = scheduleOn === false && director.state === 'sleep';
   if (next === blackout) return;
   blackout = next;
   blackoutSince = performance.now();
+  // Vid start utanför schemat är fönstret svart direkt, utan att tomten först syns och tonas ut.
+  if (!started) {
+    content.style.transition = 'none';
+    requestAnimationFrame(() => requestAnimationFrame(() => (content.style.transition = '')));
+  }
   document.body.classList.toggle('blackout', next);
   camera.setPaused(next);
+  updateHint();
   sendStatus();
 }
 
@@ -202,7 +210,7 @@ function applySettings(next: ShowSettings): void {
   director.autonomous = next.autonomous;
   pattern.hidden = !next.testPattern;
   document.documentElement.lang = next.locale;
-  hint.textContent = strings(next.locale).fullscreenHint;
+  updateHint();
   layout();
   void applyStyle(next.themeId, next.styleId);
   camera.configure(next.camera);
@@ -310,6 +318,14 @@ function isFullscreenLike(): boolean {
 }
 
 function updateHint(): void {
+  // Utanför schemat säger tipset varför fönstret är svart. Tipset syns bara utan helskärm, alltså när någon ställer in scenen.
+  const t = strings(settings?.locale ?? 'sv');
+  if (blackout && settings?.schedule.enabled) {
+    const next = scheduleState(new Date(), settings.schedule, settings.location).next;
+    hint.textContent = t.stageBlackoutHint(formatTime(next));
+  } else {
+    hint.textContent = t.fullscreenHint;
+  }
   hint.hidden = isFullscreenLike();
 }
 
@@ -369,6 +385,7 @@ async function boot(): Promise<void> {
   updateHint();
   void keepAwake();
   bus.send({ kind: 'hello', from: 'stage' });
+  started = true;
   sendStatus();
   requestAnimationFrame(frame);
   window.setInterval(applySchedule, 15000);
